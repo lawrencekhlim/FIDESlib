@@ -36,6 +36,9 @@ class Ciphertext {
     void sub(const Ciphertext& b);
 
     void addPt(const Plaintext& b);
+    void subPt(const Plaintext& b);
+    void subPtFrom(const Plaintext& b);
+    void subPtFrom(const Ciphertext& ciphertext, const Plaintext& plaintext);
 
     void addScalar(const double c);
 
