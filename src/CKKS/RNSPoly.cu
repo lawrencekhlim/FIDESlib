@@ -72,6 +72,18 @@ void RNSPoly::sub(const RNSPoly& p) {
     }
 }
 
+void RNSPoly::negate() {
+    // Negation in modular arithmetic: multiply by (p - 1), which is equivalent to -1 mod p
+    // For each limb at level i with modulus p_i, multiply by (p_i - 1)
+    std::vector<uint64_t> neg_one(level + 1);
+    for (int i = 0; i <= level; ++i) {
+        neg_one[i] = cc.prime[i].p - 1;  // -1 mod p_i = p_i - 1
+    }
+    for (auto& i : GPU) {
+        i.multScalar(neg_one);
+    }
+}
+
 void RNSPoly::modup() {
     assert(GPU.size() == 1 || 0 == "ModUp Multi-GPU not implemented.");
     for (int i = 0; i < (int)GPU.size(); ++i) {

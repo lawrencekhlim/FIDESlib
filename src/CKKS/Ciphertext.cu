@@ -141,14 +141,10 @@ void Ciphertext::subPtFrom(const Plaintext& b) {
     RNSPoly temp_c0(cc);
     temp_c0.copy(b.c0);
     temp_c0.sub(c0);  // temp_c0 = plaintext.c0 - this.c0
-    
-    RNSPoly temp_c1(cc);
-    temp_c1.copy(c1);
-    
+
     // Now assign results back
     c0.copy(temp_c0);
-    c1.sub(temp_c1);  // c1 = 0 - c1 (negate c1)
-    //NoiseFactor = b.NoiseFactor - NoiseFactor;
+    c1.negate();
 }
 
 void Ciphertext::subPtFrom(const Ciphertext& ciphertext, const Plaintext& plaintext) {

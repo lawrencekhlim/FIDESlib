@@ -102,6 +102,7 @@ class RNSPoly {
     void binomialSquareFold(RNSPoly& c0_res, const RNSPoly& c2_key_switched_0, const RNSPoly& c2_key_switched_1);
     void addScalar(std::vector<uint64_t>& vector1);
     void subScalar(std::vector<uint64_t>& vector1);
+    void negate();
     void copy(const RNSPoly& poly);
     void dropToLevel(int level);
     void addMult(const RNSPoly& poly, const RNSPoly& poly1);
