@@ -19,6 +19,7 @@ class Ciphertext {
    public:
     Context& cc;
     RNSPoly c0, c1;
+    std::optional<RNSPoly> c2;// c2 = nullptr;
     double NoiseFactor = 0;
     int NoiseLevel = {1};
 
@@ -46,6 +47,9 @@ class Ciphertext {
     void multPt(const Ciphertext& c, const Plaintext& b, bool rescale = false);
     void addMultPt(const Ciphertext& c, const Plaintext& b, bool rescale = false);
 
+    void NewRelinearizationAndRescaling(const KeySwitchingKey& kskEval, bool rescale = true);
+    void RelinearizationAndRescaling(const KeySwitchingKey& kskEval, bool rescale = true);
+    void multNoRelin(const Ciphertext& b, const KeySwitchingKey& kskEval, bool rescale = false);
     void mult(const Ciphertext& b, const KeySwitchingKey& kskEval, bool rescale = false);
     void mult(const Ciphertext& b, const Ciphertext& c, const KeySwitchingKey& kskEval, bool rescale = false);
 

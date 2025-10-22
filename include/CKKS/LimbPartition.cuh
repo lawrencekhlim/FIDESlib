@@ -134,6 +134,9 @@ class LimbPartition {
 
     void generateAllDecompAndDigit();
 
+    void mult1AddMult23(const LimbPartition& partition1, const LimbPartition& partition2,
+        const LimbPartition& partition3);
+
     void mult1AddMult23Add4(const LimbPartition& partition1, const LimbPartition& partition2,
                             const LimbPartition& partition3, const LimbPartition& partition4);
 
@@ -152,7 +155,7 @@ class LimbPartition {
 
     void multModupDotKSK(LimbPartition& c1, const LimbPartition& c1tilde, LimbPartition& c0,
                          const LimbPartition& c0tilde, const LimbPartition& ksk_a, const LimbPartition& ksk_b,
-                         const int level);
+                         const int level, bool just_relinearize = false);
 
     void automorph(const int index, const int br);
 

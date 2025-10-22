@@ -719,6 +719,33 @@ void LimbPartition::generateAllDecompAndDigit() {
     }
 }
 
+void LimbPartition::mult1AddMult23(const LimbPartition& partition1, const LimbPartition& partition2,
+    const LimbPartition& partition3) {
+    cudaSetDevice(device);
+    assert(limb.size() <= partition1.limb.size());
+    assert(limb.size() <= partition2.limb.size());
+    assert(limb.size() <= partition3.limb.size());
+
+    s.wait(partition1.s);
+    s.wait(partition2.s);
+    s.wait(partition3.s);
+
+    for (int i = 0; i < limb.size(); i += cc.batch) {
+    STREAM(limb[i]).wait(s);
+    uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+    mult1AddMult23_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+    PARTITION(id, i), limbptr.data + i, partition1.limbptr.data + i, partition2.limbptr.data + i,
+    partition3.limbptr.data + i);
+    }
+    for (int i = 0; i < limb.size(); i += cc.batch) {
+    s.wait(STREAM(limb[i]));
+    }
+
+    partition1.s.wait(s);
+    partition2.s.wait(s);
+    partition3.s.wait(s);
+}
+
 void LimbPartition::mult1AddMult23Add4(const LimbPartition& partition1, const LimbPartition& partition2,
                                        const LimbPartition& partition3, const LimbPartition& partition4) {
     cudaSetDevice(device);
@@ -1044,7 +1071,7 @@ void LimbPartition::dotKSK(const LimbPartition& src, const LimbPartition& ksk, c
 
 void LimbPartition::multModupDotKSK(LimbPartition& c1, const LimbPartition& c1tilde, LimbPartition& c0,
                                     const LimbPartition& c0tilde, const LimbPartition& ksk_a,
-                                    const LimbPartition& ksk_b, const int level) {
+                                    const LimbPartition& ksk_b, const int level, bool just_relinearize) {
 
     constexpr ALGO algo = ALGO_SHOUP;
     constexpr bool PRINT = false;
@@ -1086,14 +1113,22 @@ void LimbPartition::multModupDotKSK(LimbPartition& c1, const LimbPartition& c1ti
             for (int i = 0; i < size; i += cc.batch) {
                 STREAM(limb.at(start + i)).wait(s);
                 uint32_t num_limbs = std::min((uint32_t)cc.batch, (uint32_t)(size - i));
-
+                if(just_relinearize==true){
+                    INTT_<false, algo, INTT_RELINEAR_AND_SAVE><<<dim3{cc.N / (blockDimFirst.x * M * 2), num_limbs},
+                                                         blockDimFirst, bytesFirst, STREAM(limb.at(start + i)).ptr>>>(
+                    c1.limbptr.data + start + i, start + i, c1.auxptr.data + start + i,
+                    c1tilde.limbptr.data + start + i, c0.limbptr.data + start + i, c1.limbptr.data + start + i,
+                    ksk_a.DECOMPlimbptr[d].data + i, ksk_b.DECOMPlimbptr[d].data + i, c0.limbptr.data + start + i,
+                    c0tilde.limbptr.data + start + i);
+                } else{
                 INTT_<false, algo, INTT_MULT_AND_SAVE><<<dim3{cc.N / (blockDimFirst.x * M * 2), num_limbs},
                                                          blockDimFirst, bytesFirst, STREAM(limb.at(start + i)).ptr>>>(
                     c1.limbptr.data + start + i, start + i, c1.auxptr.data + start + i,
                     c1tilde.limbptr.data + start + i, c0.limbptr.data + start + i, c1.limbptr.data + start + i,
                     ksk_a.DECOMPlimbptr[d].data + i, ksk_b.DECOMPlimbptr[d].data + i, c0.limbptr.data + start + i,
                     c0tilde.limbptr.data + start + i);
-
+                }
+                                                                
                 INTT_<true, algo, INTT_NONE><<<dim3{cc.N / (blockDimSecond.x * M * 2), num_limbs}, blockDimSecond,
                                                bytesSecond, STREAM(limb.at(start + i)).ptr>>>(
                     c1.auxptr.data + start + i, start + i, DECOMPlimbptr[d].data + i);

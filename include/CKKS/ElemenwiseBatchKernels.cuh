@@ -10,6 +10,8 @@
 #include "ModMult.cuh"
 
 namespace FIDESlib::CKKS {
+__global__ void mult1AddMult23_(const __grid_constant__ int partition, void** l, void** l1, void** l2, void** l3);
+
 __global__ void mult1AddMult23Add4_(const __grid_constant__ int partition, void** l, void** l1, void** l2, void** l3,
                                     void** l4);
 

@@ -221,6 +221,13 @@ void RNSPoly::generateDecompAndDigit() {
     }
 }
 
+void RNSPoly::mult1AddMult23(const RNSPoly& poly1, const RNSPoly& poly2, const RNSPoly& poly3) {
+
+    for (size_t i = 0; i < GPU.size(); ++i) {
+        GPU.at(i).mult1AddMult23(poly1.GPU.at(i), poly2.GPU.at(i), poly3.GPU.at(i));
+    }
+}
+
 void RNSPoly::mult1AddMult23Add4(const RNSPoly& poly1, const RNSPoly& poly2, const RNSPoly& poly3,
                                  const RNSPoly& poly4) {
 
@@ -249,7 +256,7 @@ void RNSPoly::dotKSKinto(RNSPoly& acc, const RNSPoly& ksk, int level, const RNSP
 }
 
 void RNSPoly::multModupDotKSK(RNSPoly& c1, const RNSPoly& c1tilde, RNSPoly& c0, const RNSPoly& c0tilde,
-                              const KeySwitchingKey& key) {
+                              const KeySwitchingKey& key, bool just_relinearize) {
     assert(GPU.size() == 1 && "multModupDotKSK Multi-GPU not implemented.");
     assert(c1.level <= c1tilde.level);
     generateDecompAndDigit();
@@ -257,7 +264,7 @@ void RNSPoly::multModupDotKSK(RNSPoly& c1, const RNSPoly& c1tilde, RNSPoly& c0, 
     c1.generateSpecialLimbs();
     for (size_t i = 0; i < GPU.size(); ++i) {
         GPU.at(i).multModupDotKSK(c1.GPU.at(i), c1tilde.GPU.at(i), c0.GPU.at(i), c0tilde.GPU.at(i), key.a.GPU.at(i),
-                                  key.b.GPU.at(i), c1.level + 1);
+                                  key.b.GPU.at(i), c1.level + 1,just_relinearize);
     }
 }
 
