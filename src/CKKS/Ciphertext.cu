@@ -48,10 +48,16 @@ void Ciphertext::add(const Ciphertext& b) {
     } else if (getLevel() > b.getLevel()) {
         c0.dropToLevel(b.getLevel());
         c1.dropToLevel(b.getLevel());
+        if(c2.has_value()){
+            (*c2).dropToLevel(b.getLevel());
+        }
     }
-
+    std::cout<<" came inside add "<< c2.has_value() <<" " <<b.c2.has_value()<<"\n\n";
     c0.add(b.c0);
     c1.add(b.c1);
+    if(c2.has_value() && b.c2.has_value()){
+        (*c2).add(*b.c2);
+    }
 }
 
 void Ciphertext::sub(const Ciphertext& b) {
@@ -196,6 +202,203 @@ void Ciphertext::rescale() {
     NoiseLevel -= 1;
 }
 
+void Ciphertext::NewRelinearizationAndRescaling(const KeySwitchingKey& kskEval, bool rescale){
+    std::cout<<"came inside relinearlizatipn\n";
+    assert(c2.has_value());
+    cc.getKeySwitchAux().multModupDotKSK(c1, (*c2), c0, c0, kskEval,true);
+    c1.moddown(true, false);
+    if (rescale && cc.rescaleTechnique == CKKS::Context::FIXEDMANUAL)
+        c1.rescale();
+    c0.moddown(true, false);
+    if (rescale && cc.rescaleTechnique == CKKS::Context::FIXEDMANUAL)
+        c0.rescale();
+    // assert(c2.has_value());
+    // (*c2).modup();
+    // auto& aux0 = (*c2).dotKSKInPlace(kskEval, c0.getLevel());
+    // std::cout<<"done first modup \n";
+    // cudaDeviceSynchronize();
+
+    // (*c2).add(c1);
+    
+    // cudaDeviceSynchronize();
+    // std::cout<<"done add  \n";
+    // (*c2).moddown(true, false);
+    // cudaDeviceSynchronize();
+    // std::cout<<"done moddown  \n";
+    // c1.copy(*c2);
+    // cudaDeviceSynchronize();
+    // std::cout<<"done copy  \n";
+    // /*
+    // for (int i = 0; i <= c1.getLevel(); ++i)
+    //     p[i] = 1.0;
+    // cc.getKeySwitchAux().subScalar(p);
+    // */
+    // // cudaDeviceSynchronize();
+    // aux0.add(c0);
+    // std::cout<<"done add  \n";
+    // aux0.moddown(true, false);
+    // std::cout<<"done moddown  \n";
+    // c0.copy(aux0);
+    // std::cout<<"done copy  \n";
+    // cudaDeviceSynchronize();
+    // //c1.mult1AddMult23Add4(b.c0, c0, b.c1, cc.getKeySwitchAux());  // Read 4 first for better cache locality.
+
+    // if (rescale) {
+    //     c1.rescale();
+    // }
+    // if (rescale) {
+    //     c0.rescale();
+    // }
+    // NoiseLevel += b.NoiseLevel;
+    // NoiseFactor *= b.NoiseFactor;
+    // if (rescale && cc.rescaleTechnique == CKKS::Context::FIXEDMANUAL) {
+    //     NoiseFactor /= cc.param.ModReduceFactor.at(c0.getLevel() + 1);
+    //     NoiseLevel -= 1;
+    // }
+    // Out(KEYSWITCH, " finish ");
+}   
+
+void Ciphertext::RelinearizationAndRescaling(const KeySwitchingKey& kskEval, bool rescale){
+    std::cout<<"came inside relinearlizatipn\n";
+    assert(c2.has_value());
+    (*c2).modup();
+    auto& aux0 = (*c2).dotKSKInPlace(kskEval, c0.getLevel());
+    std::cout<<"done first modup \n";
+    cudaDeviceSynchronize();
+
+    (*c2).add(c1);
+    
+    cudaDeviceSynchronize();
+    std::cout<<"done add  \n";
+    (*c2).moddown(true, false);
+    cudaDeviceSynchronize();
+    std::cout<<"done moddown  \n";
+    c1.copy(*c2);
+    cudaDeviceSynchronize();
+    std::cout<<"done copy  \n";
+    /*
+    for (int i = 0; i <= c1.getLevel(); ++i)
+        p[i] = 1.0;
+    cc.getKeySwitchAux().subScalar(p);
+    */
+    // cudaDeviceSynchronize();
+    aux0.add(c0);
+    std::cout<<"done add  \n";
+    aux0.moddown(true, false);
+    std::cout<<"done moddown  \n";
+    c0.copy(aux0);
+    std::cout<<"done copy  \n";
+    cudaDeviceSynchronize();
+    //c1.mult1AddMult23Add4(b.c0, c0, b.c1, cc.getKeySwitchAux());  // Read 4 first for better cache locality.
+
+    if (rescale) {
+        c1.rescale();
+    }
+    if (rescale) {
+        c0.rescale();
+    }
+    // NoiseLevel += b.NoiseLevel;
+    // NoiseFactor *= b.NoiseFactor;
+    // if (rescale && cc.rescaleTechnique == CKKS::Context::FIXEDMANUAL) {
+    //     NoiseFactor /= cc.param.ModReduceFactor.at(c0.getLevel() + 1);
+    //     NoiseLevel -= 1;
+    // }
+    // Out(KEYSWITCH, " finish ");
+}   
+
+void Ciphertext::multNoRelin(const Ciphertext& b, const KeySwitchingKey& kskEval, bool rescale) {
+    std::cout<<"came inside multmult\n\n\n";
+    CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
+
+    if (cc.rescaleTechnique == Context::FIXEDAUTO || cc.rescaleTechnique == Context::FLEXIBLEAUTO ||
+        cc.rescaleTechnique == Context::FLEXIBLEAUTOEXT) {
+        if (!adjustForMult(b)) {
+            Ciphertext b_(cc);
+            b_.copy(b);
+            if (b_.adjustForMult(*this))
+                multNoRelin(b_, kskEval, rescale);
+            else
+                assert(false);
+            return;
+        }
+    }
+    assert(NoiseLevel == 1);
+    assert(NoiseLevel == b.NoiseLevel);
+    /*
+    if (getLevel() > b.getLevel()) {
+        this->c0.dropToLevel(b.getLevel());
+        this->c1.dropToLevel(b.getLevel());
+    }
+    */
+    assert(c0.getLevel() <= b.c0.getLevel());
+    assert(c1.getLevel() <= b.c1.getLevel());
+    constexpr bool PRINT = false;
+    Out(KEYSWITCH, " start ");
+    if(!c2.has_value()){
+        c2.emplace(cc,cc.L,true);
+    }
+    (*c2).generateDecompAndDigit();
+    //if constexpr (0) {
+        (*c2).setLevel(c1.getLevel());
+        (*c2).multElement(c1, b.c1);
+        //(*c2).modup();
+        //cc.getKeySwitchAux().modup();
+
+        //auto& aux0 = cc.getKeySwitchAux().dotKSKInPlace(kskEval, c0.getLevel());
+
+        cudaDeviceSynchronize();
+        /*
+        std::vector<uint64_t> p(c1.getLevel() + 1);
+        for (int i = 0; i <= c1.getLevel(); ++i)
+            p[i] = hC_.P[i];
+
+        cc.getKeySwitchAux().addScalar(p);
+        */
+        c1.mult1AddMult23(b.c0, c0, b.c1);  // Read 4 first for better cache locality.
+        cudaDeviceSynchronize();
+        //cc.getKeySwitchAux().moddown(true, false);
+        //cudaDeviceSynchronize();
+        //c1.copy(cc.getKeySwitchAux());
+        //cudaDeviceSynchronize();
+        /*
+        for (int i = 0; i <= c1.getLevel(); ++i)
+            p[i] = 1.0;
+        cc.getKeySwitchAux().subScalar(p);
+        */
+        //cudaDeviceSynchronize();
+        c0.multElement(c0, b.c0);
+        //c0.mult1Add2(b.c0, aux0);
+        //aux0.moddown(true, false);
+        //c0.copy(aux0);
+        //cudaDeviceSynchronize();
+        //c1.mult1AddMult23Add4(b.c0, c0, b.c1, cc.getKeySwitchAux());  // Read 4 first for better cache locality.
+
+        // if (rescale) {
+        //     c1.rescale();
+        // }
+        // if (rescale) {
+        //     c0.rescale();
+        // }
+    // } else {
+    //     cc.getKeySwitchAux().multModupDotKSK(c1, b.c1, c0, b.c0, kskEval);
+    //     c1.moddown(true, false);
+    //     if (rescale && cc.rescaleTechnique == CKKS::Context::FIXEDMANUAL)
+    //         c1.rescale();
+    //     c0.moddown(true, false);
+    //     if (rescale && cc.rescaleTechnique == CKKS::Context::FIXEDMANUAL)
+    //         c0.rescale();
+    // }
+
+    // Manage metadata
+    NoiseLevel += b.NoiseLevel;
+    NoiseFactor *= b.NoiseFactor;
+    if (rescale && cc.rescaleTechnique == CKKS::Context::FIXEDMANUAL) {
+        NoiseFactor /= cc.param.ModReduceFactor.at(c0.getLevel() + 1);
+        NoiseLevel -= 1;
+    }
+    Out(KEYSWITCH, " finish ");
+}
+
 void Ciphertext::mult(const Ciphertext& b, const KeySwitchingKey& kskEval, bool rescale) {
     CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
 
@@ -224,7 +427,8 @@ void Ciphertext::mult(const Ciphertext& b, const KeySwitchingKey& kskEval, bool 
     constexpr bool PRINT = false;
     Out(KEYSWITCH, " start ");
 
-    if constexpr (0) {
+    if constexpr (1) {
+        std::cout<<"in mult came inside 0 constexpr\n\n";
         cc.getKeySwitchAux().setLevel(c1.getLevel());
         cc.getKeySwitchAux().multElement(c1, b.c1);
         cc.getKeySwitchAux().modup();
@@ -264,6 +468,7 @@ void Ciphertext::mult(const Ciphertext& b, const KeySwitchingKey& kskEval, bool 
             c0.rescale();
         }
     } else {
+        std::cout<<"in mult came inside else of 0 constexpr\n\n";
         cc.getKeySwitchAux().multModupDotKSK(c1, b.c1, c0, b.c0, kskEval);
         c1.moddown(true, false);
         if (rescale && cc.rescaleTechnique == CKKS::Context::FIXEDMANUAL)
@@ -284,6 +489,7 @@ void Ciphertext::mult(const Ciphertext& b, const KeySwitchingKey& kskEval, bool 
 }
 
 void Ciphertext::square(const KeySwitchingKey& kskEval, bool rescale) {
+    std::cout<<" came inside square function\n\n";
     CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
 
     constexpr bool PRINT = false;
@@ -296,7 +502,8 @@ void Ciphertext::square(const KeySwitchingKey& kskEval, bool rescale) {
     }
     assert(this->NoiseLevel == 1);
 
-    if constexpr (0) {
+    if constexpr (1) {
+        std::cout<<" came inside if condition of sqauare\n\n";
         cc.getKeySwitchAux().setLevel(c1.getLevel());
         cc.getKeySwitchAux().squareElement(c1);
         cc.getKeySwitchAux().modup();
@@ -707,6 +914,12 @@ void Ciphertext::copy(const Ciphertext& ciphertext) {
 
     c0.copy(ciphertext.c0);
     c1.copy(ciphertext.c1);
+    if(ciphertext.c2.has_value()){
+        if(!c2.has_value()){
+            c2.emplace(cc,cc.L,true);
+        }
+        (*c2).copy(*ciphertext.c2);
+    }
     //cudaDeviceSynchronize();
     this->NoiseLevel = ciphertext.NoiseLevel;
     this->NoiseFactor = ciphertext.NoiseFactor;

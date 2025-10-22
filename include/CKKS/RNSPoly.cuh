@@ -69,6 +69,8 @@ class RNSPoly {
 
     void generateDecompAndDigit();
 
+    void mult1AddMult23(const RNSPoly& poly1, const RNSPoly& poly2, const RNSPoly& poly3);
+
     void mult1AddMult23Add4(const RNSPoly& poly1, const RNSPoly& poly2, const RNSPoly& poly3, const RNSPoly& poly4);
 
     void mult1Add2(const RNSPoly& poly1, const RNSPoly& poly2);
@@ -81,7 +83,7 @@ class RNSPoly {
     void multElement(const RNSPoly& poly1, const RNSPoly& poly2);
 
     void multModupDotKSK(RNSPoly& c1, const RNSPoly& c1tilde, RNSPoly& c0, const RNSPoly& c0tilde,
-                         const KeySwitchingKey& key);
+                         const KeySwitchingKey& key, bool just_relinearize = false);
 
     void automorph(const int idx, const int br = 1);
 

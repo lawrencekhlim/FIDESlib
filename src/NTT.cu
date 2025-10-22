@@ -64,9 +64,11 @@ __device__ __forceinline__ void INTT__(const T* __restrict__ dat, const int prim
         psi[tid] = ((T*)G_::inv_psi[primeid])[tid];
         if constexpr (algo == ALGO_SHOUP)
             psi_shoup[tid] = ((T*)G_::inv_psi_shoup[primeid])[tid];
-
         if constexpr (mode == INTT_MULT_AND_SAVE && !second) {
             mult_and_save_fusion<T, algo, M>(buffer, logBD, j, primeid, (T*)dat, (T*)dat2, (T*)c0, (T*)dat, (T*)kska,
+                                                (T*)kskb, (T*)c0, (T*)c0tilde);                                    
+        } else if constexpr (mode == INTT_RELINEAR_AND_SAVE && !second) {
+            just_relinearize<T, algo, M>(buffer, logBD, j, primeid, (T*)dat, (T*)dat2, (T*)c0, (T*)dat, (T*)kska,
                                              (T*)kskb, (T*)c0, (T*)c0tilde);
         } else if constexpr (mode == INTT_MULT_AND_ACC && !second) {
             mult_and_acc_fusion<T, algo, M>(buffer, logBD, j, primeid, (T*)dat, (T*)dat2, (T*)c0, (T*)dat, (T*)kska,

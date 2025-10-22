@@ -8,6 +8,26 @@
 
 namespace FIDESlib {
 namespace CKKS {
+    
+__global__ void mult1AddMult23_(const __grid_constant__ int primeid_init, void** l, void** l1, void** l2, void** l3) {
+const int primeid = C_.primeid_flattened[primeid_init + blockIdx.y];
+const int idx = threadIdx.x + blockDim.x * blockIdx.x;
+constexpr ALGO algo = ALGO_BARRETT;
+
+if (ISU64(primeid)) {
+using T = uint64_t;
+//T aux = ((T*)l4[blockIdx.y])[idx];
+T res = modmult<algo>(((T*)l[blockIdx.y])[idx], ((T*)l1[blockIdx.y])[idx], primeid);
+//res = modadd(res, aux, primeid);
+res = modadd(res, modmult<algo>(((T*)l2[blockIdx.y])[idx], ((T*)l3[blockIdx.y])[idx], primeid), primeid);
+res = modmult(res, C_.P[primeid], primeid);
+//T opt = modadd(res, aux, primeid);
+((T*)l[blockIdx.y])[idx] = res;
+} else {
+using T = uint32_t;
+}
+}
+
 __global__ void mult1AddMult23Add4_(const __grid_constant__ int primeid_init, void** l, void** l1, void** l2, void** l3,
                                     void** l4) {
     const int primeid = C_.primeid_flattened[primeid_init + blockIdx.y];

@@ -10,6 +10,72 @@
 
 namespace FIDESlib {
 template <typename T, ALGO algo_, int M>
+__device__ __forceinline__ void just_relinearize(char* buffer, const int logBD, const int j, const int primeid,
+                                                     const T* c1, const T* c1tilde, T* res0, T* res1, const T* kska,
+                                                     const T* kskb, const T* c0, const T* c0tilde) {
+    constexpr ALGO algo = algo_ == ALGO_SHOUP ? ALGO_BARRETT : algo_;
+
+    for (int i = 0; i < M; i += 1) {
+        T in1[2], in2[2] = {0, 0}, ksk1[2], ksk2[2], c1_[2], c1tilde_[2], c0_[2], c0tilde_[2];
+
+        if constexpr (sizeof(T) == 8) {
+            ((int4*)c1_)[0] = ((int4*)c1)[OFFSET_2T(i)];
+            ((int4*)c1tilde_)[0] = ((int4*)c1tilde)[OFFSET_2T(i)];
+            in1[0] = c1tilde_[0];//modmult<algo>(c1_[0], c1tilde_[0], primeid);
+            in1[1] = c1tilde_[1];//modmult<algo>(c1_[1], c1tilde_[1], primeid);
+            // in1[0] = modmult<algo>(c1_[0], c1tilde_[0], primeid);
+            // in1[1] = modmult<algo>(c1_[1], c1tilde_[1], primeid);
+            A(i)[j] = in1[0];
+            A(i)[j + 1] = in1[1];
+
+            ((int4*)c0_)[0] = ((int4*)c0)[OFFSET_2T(i)];
+            ((int4*)c0tilde_)[0] = ((int4*)c0tilde)[OFFSET_2T(i)];
+
+            //  res1 = P * (c0 * c1' + c1 * c0') + kska * c1 * c1'
+
+            // in2[0] = modmult<algo>(c1_[0], c0tilde_[0], primeid);
+            // in2[1] = modmult<algo>(c1_[1], c0tilde_[1], primeid);
+            // in2[0] = modadd(in2[0], modmult<algo>(c1tilde_[0], c0_[0], primeid), primeid);
+            // in2[1] = modadd(in2[1], modmult<algo>(c1tilde_[1], c0_[1], primeid), primeid);
+            // in2[0] = modmult<algo>(in2[0], C_.P[primeid], primeid);  // TODO shoup
+            // in2[1] = modmult<algo>(in2[1], C_.P[primeid], primeid);  // TODO shoup
+            in2[0] = c1_[0];
+            in2[1] = c1_[1]; 
+                                                                   /*
+            if (OFFSET_2T(i) == 0 && primeid == 0)
+                printf("Mult and save c1 %lu\n", in2[0]);
+*/
+            ((int4*)ksk2)[0] = ((int4*)kska)[OFFSET_2T(i)];
+            in2[0] = modadd(in2[0], modmult<algo>(in1[0], ksk2[0], primeid), primeid);
+            in2[1] = modadd(in2[1], modmult<algo>(in1[1], ksk2[1], primeid), primeid);
+            ((int4*)res1)[OFFSET_2T(i)] = ((int4*)&in2)[0];
+
+            //in2[0] = 0;
+            //in2[1] = 0;
+            // res0 = result: P * (c0 * c0') + kskb * c1 * c1'
+
+            in2[0] = c0_[0];//modmult<algo>(c0_[0], c0tilde_[0], primeid);
+            in2[1] = c0_[1];//modmult<algo>(c0_[1], c0tilde_[1], primeid);
+            // in2[0] = modmult<algo>(c0_[0], c0tilde_[0], primeid);
+            // in2[1] = modmult<algo>(c0_[1], c0tilde_[1], primeid);
+            in2[0] = modmult<algo>(in2[0], C_.P[primeid], primeid);  // TODO shoup
+            in2[1] = modmult<algo>(in2[1], C_.P[primeid], primeid);  // TODO shoup
+                                                                     /*
+            if (OFFSET_2T(i) == 0 && primeid == 0)
+                printf("Mult and save c0 %lu\n", in2[0]);
+*/
+            ((int4*)ksk1)[0] = ((int4*)kskb)[OFFSET_2T(i)];
+            in2[0] = modadd(modmult<algo>(in1[0], ksk1[0], primeid), in2[0], primeid);
+            in2[1] = modadd(modmult<algo>(in1[1], ksk1[1], primeid), in2[1], primeid);
+
+            ((int4*)res0)[OFFSET_2T(i)] = ((int4*)&in2)[0];
+
+        } else {
+        }
+    }
+}
+
+template <typename T, ALGO algo_, int M>
 __device__ __forceinline__ void mult_and_save_fusion(char* buffer, const int logBD, const int j, const int primeid,
                                                      const T* c1, const T* c1tilde, T* res0, T* res1, const T* kska,
                                                      const T* kskb, const T* c0, const T* c0tilde) {

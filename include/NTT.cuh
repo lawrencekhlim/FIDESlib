@@ -19,7 +19,8 @@ void* get_NTT_reference(bool second);
 
 // ------------------------------------- INTT ----------------------------------------
 /** Kernel fusions */
-enum INTT_MODE { INTT_NONE, INTT_MULT_AND_SAVE, INTT_MULT_AND_ACC, INTT_ROTATE_AND_SAVE, INTT_SQUARE_AND_SAVE };
+enum INTT_MODE { INTT_NONE, INTT_MULT_AND_SAVE, INTT_MULT_AND_ACC, INTT_ROTATE_AND_SAVE, INTT_SQUARE_AND_SAVE, INTT_RELINEAR_AND_SAVE };
+// enum INTT_MODE { INTT_NONE, INTT_MULT_AND_SAVE, INTT_MULT_AND_ACC, INTT_ROTATE_AND_SAVE, INTT_SQUARE_AND_SAVE };
 
 template <typename T, bool second = true, ALGO algo = ALGO_SHOUP, INTT_MODE mode = INTT_NONE>
 __global__ void INTT_(T* __restrict__ dat, const int __grid_constant__ primeid, T* __restrict__ res,
@@ -27,6 +28,13 @@ __global__ void INTT_(T* __restrict__ dat, const int __grid_constant__ primeid, 
                       T* __restrict__ res1 = nullptr, const T* __restrict__ kska = nullptr,
                       const T* __restrict__ kskb = nullptr, T* __restrict__ c0 = nullptr,
                       const T* __restrict__ c0tilde = nullptr);
+
+// template <bool second = false, ALGO algo = ALGO_SHOUP, INTT_MODE mode = INTT_RELINEAR_AND_SAVE>
+// __global__ void INTT_(void** __restrict__ dat, const int __grid_constant__ primeid_init, void** __restrict__ res,
+//     void** __restrict__ dat2 = nullptr, void** __restrict__ res0 = nullptr,
+//     void** __restrict__ res1 = nullptr, void** __restrict__ kska = nullptr,
+//     void** __restrict__ kskb = nullptr, void** __restrict__ c0 = nullptr,
+//     void** __restrict__ c0tilde = nullptr);                    
 
 template <bool second, ALGO algo, INTT_MODE mode>
 __global__ void INTT_(void** __restrict__ dat, const int __grid_constant__ primeid_init, void** __restrict__ res,
