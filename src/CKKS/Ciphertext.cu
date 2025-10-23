@@ -52,7 +52,7 @@ void Ciphertext::add(const Ciphertext& b) {
             (*c2).dropToLevel(b.getLevel());
         }
     }
-    std::cout<<" came inside add "<< c2.has_value() <<" " <<b.c2.has_value()<<"\n\n";
+    // std::cout<<" came inside add "<< c2.has_value() <<" " <<b.c2.has_value()<<"\n\n";
     c0.add(b.c0);
     c1.add(b.c1);
     if(c2.has_value() && b.c2.has_value()){
@@ -262,7 +262,7 @@ void Ciphertext::rescale() {
 }
 
 void Ciphertext::NewRelinearizationAndRescaling(const KeySwitchingKey& kskEval, bool rescale){
-    std::cout<<"came inside relinearlizatipn\n";
+    // std::cout<<"came inside relinearlizatipn\n";
     assert(c2.has_value());
     cc.getKeySwitchAux().multModupDotKSK(c1, (*c2), c0, c0, kskEval,true);
     c1.moddown(true, false);
@@ -317,56 +317,8 @@ void Ciphertext::NewRelinearizationAndRescaling(const KeySwitchingKey& kskEval, 
     // Out(KEYSWITCH, " finish ");
 }   
 
-void Ciphertext::RelinearizationAndRescaling(const KeySwitchingKey& kskEval, bool rescale){
-    std::cout<<"came inside relinearlizatipn\n";
-    assert(c2.has_value());
-    (*c2).modup();
-    auto& aux0 = (*c2).dotKSKInPlace(kskEval, c0.getLevel());
-    std::cout<<"done first modup \n";
-    cudaDeviceSynchronize();
-
-    (*c2).add(c1);
-    
-    cudaDeviceSynchronize();
-    std::cout<<"done add  \n";
-    (*c2).moddown(true, false);
-    cudaDeviceSynchronize();
-    std::cout<<"done moddown  \n";
-    c1.copy(*c2);
-    cudaDeviceSynchronize();
-    std::cout<<"done copy  \n";
-    /*
-    for (int i = 0; i <= c1.getLevel(); ++i)
-        p[i] = 1.0;
-    cc.getKeySwitchAux().subScalar(p);
-    */
-    // cudaDeviceSynchronize();
-    aux0.add(c0);
-    std::cout<<"done add  \n";
-    aux0.moddown(true, false);
-    std::cout<<"done moddown  \n";
-    c0.copy(aux0);
-    std::cout<<"done copy  \n";
-    cudaDeviceSynchronize();
-    //c1.mult1AddMult23Add4(b.c0, c0, b.c1, cc.getKeySwitchAux());  // Read 4 first for better cache locality.
-
-    if (rescale) {
-        c1.rescale();
-    }
-    if (rescale) {
-        c0.rescale();
-    }
-    // NoiseLevel += b.NoiseLevel;
-    // NoiseFactor *= b.NoiseFactor;
-    // if (rescale && cc.rescaleTechnique == CKKS::Context::FIXEDMANUAL) {
-    //     NoiseFactor /= cc.param.ModReduceFactor.at(c0.getLevel() + 1);
-    //     NoiseLevel -= 1;
-    // }
-    // Out(KEYSWITCH, " finish ");
-}   
-
 void Ciphertext::multNoRelin(const Ciphertext& b, const KeySwitchingKey& kskEval, bool rescale) {
-    std::cout<<"came inside multmult\n\n\n";
+    // std::cout<<"came inside multmult\n\n\n";
     CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
 
     if (cc.rescaleTechnique == Context::FIXEDAUTO || cc.rescaleTechnique == Context::FLEXIBLEAUTO ||
@@ -486,8 +438,8 @@ void Ciphertext::mult(const Ciphertext& b, const KeySwitchingKey& kskEval, bool 
     constexpr bool PRINT = false;
     Out(KEYSWITCH, " start ");
 
-    if constexpr (1) {
-        std::cout<<"in mult came inside 0 constexpr\n\n";
+    if constexpr (0) {
+        // std::cout<<"in mult came inside 0 constexpr\n\n";
         cc.getKeySwitchAux().setLevel(c1.getLevel());
         cc.getKeySwitchAux().multElement(c1, b.c1);
         cc.getKeySwitchAux().modup();
@@ -527,7 +479,7 @@ void Ciphertext::mult(const Ciphertext& b, const KeySwitchingKey& kskEval, bool 
             c0.rescale();
         }
     } else {
-        std::cout<<"in mult came inside else of 0 constexpr\n\n";
+        // std::cout<<"in mult came inside else of 0 constexpr\n\n";
         cc.getKeySwitchAux().multModupDotKSK(c1, b.c1, c0, b.c0, kskEval);
         c1.moddown(true, false);
         if (rescale && cc.rescaleTechnique == CKKS::Context::FIXEDMANUAL)
@@ -548,7 +500,7 @@ void Ciphertext::mult(const Ciphertext& b, const KeySwitchingKey& kskEval, bool 
 }
 
 void Ciphertext::square(const KeySwitchingKey& kskEval, bool rescale) {
-    std::cout<<" came inside square function\n\n";
+    // std::cout<<" came inside square function\n\n";
     CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
 
     constexpr bool PRINT = false;
@@ -561,8 +513,8 @@ void Ciphertext::square(const KeySwitchingKey& kskEval, bool rescale) {
     }
     assert(this->NoiseLevel == 1);
 
-    if constexpr (1) {
-        std::cout<<" came inside if condition of sqauare\n\n";
+    if constexpr (0) {
+        // std::cout<<" came inside if condition of sqauare\n\n";
         cc.getKeySwitchAux().setLevel(c1.getLevel());
         cc.getKeySwitchAux().squareElement(c1);
         cc.getKeySwitchAux().modup();
