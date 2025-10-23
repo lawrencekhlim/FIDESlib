@@ -437,12 +437,40 @@ BootstrapPrecomputation& Context::GetBootPrecomputation(int slots) {
     return boot_precomps[slots];
 }
 
+std::map<int, RawKeySwitchKey> raw_rot_keys;
 std::map<int, KeySwitchingKey> rot_keys;
+
+void Context::AddRawRotationKey(int index, RawKeySwitchKey&& raw_ksk) {
+    //index = index % (cc.N / 2);
+    if (index < 0)
+        index += this->N / 2;
+    raw_rot_keys.emplace(index, std::move(raw_ksk));
+}
+
+void Context::LoadRotationKeyGPU(int index) {
+    //index = index % (cc.N / 2);
+    FIDESlib::CKKS::KeySwitchingKey rotation_key_gpu(*this);
+    rotation_key_gpu.Initialize(*this, raw_rot_keys.at(index));
+    AddRotationKey(index, std::move(rotation_key_gpu));
+}
+
+void Context::UnloadRotationKeyGPU(int index) {
+    //index = index % (cc.N / 2);
+    if (index < 0)
+        index += this->N / 2;
+    rot_keys.erase(index);
+}
+
+void Context::ClearRotationKeysGPU() {
+    rot_keys.clear();
+}
 
 KeySwitchingKey& Context::GetRotationKey(int index) {
     //index = index % (cc.N / 2);
     if (index < 0)
         index += this->N / 2;
+    if (!rot_keys.contains(index))
+        LoadRotationKeyGPU(index);
     return rot_keys.at(index);
 }
 void Context::AddRotationKey(int index, KeySwitchingKey&& ksk) {
@@ -455,7 +483,7 @@ bool Context::HasRotationKey(int index) {
     //index = index % (cc.N / 2);
     if (index < 0)
         index += this->N / 2;
-    return rot_keys.contains(index);
+    return raw_rot_keys.contains(index);
 }
 
 std::optional<KeySwitchingKey> eval_key;

@@ -99,6 +99,12 @@ class Context {
     int GetDoubleAngleIts();
     void AddBootPrecomputation(int slots, BootstrapPrecomputation&& precomp) const;
     static BootstrapPrecomputation& GetBootPrecomputation(int slots);
+
+    void AddRawRotationKey(int index, RawKeySwitchKey&& raw_ksk);
+    void LoadRotationKeyGPU(int index);
+    void UnloadRotationKeyGPU(int index);
+    void ClearRotationKeysGPU();
+
     void AddRotationKey(int index, KeySwitchingKey&& ksk);
     KeySwitchingKey& GetRotationKey(int index);
     bool HasRotationKey(int index);
