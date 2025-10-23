@@ -102,6 +102,65 @@ void Ciphertext::addPt(const Plaintext& b) {
     //NoiseFactor += b.NoiseFactor;
 }
 
+void Ciphertext::subPt(const Plaintext& b) {
+    CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
+
+    if (cc.rescaleTechnique == Context::FLEXIBLEAUTO || cc.rescaleTechnique == Context::FLEXIBLEAUTOEXT ||
+        cc.rescaleTechnique == Context::FIXEDAUTO) {
+        if (b.c0.getLevel() != this->getLevel() ||
+            (b.NoiseLevel == 1 && NoiseLevel == 2) /*!hasSameScalingFactor(b)*/) {
+            Plaintext b_(cc);
+            if (!b_.adjustPlaintextToCiphertext(b, *this)) {
+                assert(false);
+            } else {
+                subPt(b_);
+            }
+            return;
+        }
+    }
+    assert(NoiseLevel == b.NoiseLevel);
+
+    c0.sub(b.c0);
+    //NoiseFactor -= b.NoiseFactor;
+}
+
+void Ciphertext::subPtFrom(const Plaintext& b) {
+    CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
+
+    if (cc.rescaleTechnique == Context::FLEXIBLEAUTO || cc.rescaleTechnique == Context::FLEXIBLEAUTOEXT ||
+        cc.rescaleTechnique == Context::FIXEDAUTO) {
+        if (b.c0.getLevel() != this->getLevel() ||
+            (b.NoiseLevel == 1 && NoiseLevel == 2) /*!hasSameScalingFactor(b)*/) {
+            Plaintext b_(cc);
+            if (!b_.adjustPlaintextToCiphertext(b, *this)) {
+                assert(false);
+            } else {
+                subPtFrom(b_);
+            }
+            return;
+        }
+    }
+    assert(NoiseLevel == b.NoiseLevel);
+
+    // Implements: result = plaintext - this
+    // Create temporary polynomials to hold the result
+    RNSPoly temp_c0(cc);
+    temp_c0.copy(b.c0);
+    temp_c0.sub(c0);  // temp_c0 = plaintext.c0 - this.c0
+
+    // Now assign results back
+    c0.copy(temp_c0);
+    c1.negate();
+}
+
+void Ciphertext::subPtFrom(const Ciphertext& ciphertext, const Plaintext& plaintext) {
+    CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
+
+    assert(ciphertext.getLevel() <= plaintext.c0.getLevel());
+    this->copy(ciphertext);
+    this->subPtFrom(plaintext);
+}
+
 void Ciphertext::load(const RawCipherText& rawct) {
     CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
 
