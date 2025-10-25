@@ -337,22 +337,36 @@ FIDESlib::CKKS::RawParams FIDESlib::CKKS::GetRawParams(lbcrypto::CryptoContext<l
         }
     }
 
-    if (cc->GetScheme()->m_FHE) {
-        if (cryptoParams->GetSecretKeyDist() == SPARSE_TERNARY) {
-            result.coefficientsCheby = lbcrypto::FHECKKSRNS::g_coefficientsSparse;
-            // k = K_SPARSE;
-            result.bootK = 1.0;  // do not divide by k as we already did it during precomputation
+    // Initialize Chebyshev coefficients and bootstrap parameters
+    // This must always be done for bootstrapping to work, regardless of whether m_FHE is set
+    std::cout << "[DEBUG] GetRawParams: Initializing Chebyshev coefficients" << std::endl;
+    std::cout << "[DEBUG] SecretKeyDist: " << cryptoParams->GetSecretKeyDist() << std::endl;
+    
+    if (cryptoParams->GetSecretKeyDist() == SPARSE_TERNARY) {
+        result.coefficientsCheby = lbcrypto::FHECKKSRNS::g_coefficientsSparse;
+        result.bootK = 1.0;  // do not divide by k as we already did it during precomputation
+        result.doubleAngleIts = lbcrypto::FHECKKSRNS::R_SPARSE;
+        std::cout << "[DEBUG] Using SPARSE_TERNARY coefficients, size: " << result.coefficientsCheby.size() << std::endl;
+    } else if (cryptoParams->GetSecretKeyDist() == UNIFORM_TERNARY) {
+        result.coefficientsCheby = lbcrypto::FHECKKSRNS::g_coefficientsUniform;
+        result.doubleAngleIts = lbcrypto::FHECKKSRNS::R_UNIFORM;
+        // Try to get K_UNIFORM from m_FHE if available, otherwise use default
+        if (cc->GetScheme()->m_FHE) {
+            result.bootK = std::dynamic_pointer_cast<lbcrypto::FHECKKSRNS>(cc->GetScheme()->m_FHE)->K_UNIFORM;
         } else {
-            result.coefficientsCheby = lbcrypto::FHECKKSRNS::g_coefficientsUniform;
-            //coefficients = g_coefficientsUniform;
-            result.bootK = std::dynamic_pointer_cast<lbcrypto::FHECKKSRNS>(cc->GetScheme()->m_FHE)
-                               ->K_UNIFORM;  // lbcrypto::FHECKKSRNS::K_UNIFORM;
+            result.bootK = 1.25;  // Default K_UNIFORM value
         }
-
-        if (cryptoParams->GetSecretKeyDist() == UNIFORM_TERNARY)
-            result.doubleAngleIts = lbcrypto::FHECKKSRNS::R_UNIFORM;
-        else
-            result.doubleAngleIts = lbcrypto::FHECKKSRNS::R_SPARSE;
+        std::cout << "[DEBUG] Using UNIFORM_TERNARY coefficients, size: " << result.coefficientsCheby.size() << std::endl;
+    } else {
+        // Default case (GAUSSIAN or other distributions) - use uniform coefficients
+        result.coefficientsCheby = lbcrypto::FHECKKSRNS::g_coefficientsUniform;
+        result.doubleAngleIts = lbcrypto::FHECKKSRNS::R_UNIFORM;
+        if (cc->GetScheme()->m_FHE) {
+            result.bootK = std::dynamic_pointer_cast<lbcrypto::FHECKKSRNS>(cc->GetScheme()->m_FHE)->K_UNIFORM;
+        } else {
+            result.bootK = 1.25;  // Default K_UNIFORM value
+        }
+        std::cout << "[DEBUG] Using default (GAUSSIAN) coefficients, size: " << result.coefficientsCheby.size() << std::endl;
     }
 
     result.p = cryptoParams->GetPlaintextModulus();
@@ -643,15 +657,17 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
         for (int i = 1; i < result.LT.bStep; ++i) {
             KeySwitchingKey ksk(GPUcc);
             RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, i, cc);
-            ksk.Initialize(GPUcc, rksk);
-            GPUcc.AddRotationKey(i, std::move(ksk));
+            GPUcc.AddRawRotationKey(i, std::move(rksk));
+            // ksk.Initialize(GPUcc, rksk);
+            // GPUcc.AddRotationKey(i, std::move(ksk));
         }
 
         for (int i = result.LT.bStep; i < result.LT.slots; i += result.LT.bStep) {
             KeySwitchingKey ksk(GPUcc);
             RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, i, cc);
-            ksk.Initialize(GPUcc, rksk);
-            GPUcc.AddRotationKey(i, std::move(ksk));
+            GPUcc.AddRawRotationKey(i, std::move(rksk));
+            // ksk.Initialize(GPUcc, rksk);
+            // GPUcc.AddRotationKey(i, std::move(ksk));
         }
     } else {
 
@@ -818,16 +834,18 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
                 if (j && !GPUcc.HasRotationKey(j)) {
                     KeySwitchingKey ksk(GPUcc);
                     RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, j, cc);
-                    ksk.Initialize(GPUcc, rksk);
-                    GPUcc.AddRotationKey(j, std::move(ksk));
+                    GPUcc.AddRawRotationKey(j, std::move(rksk));
+                    // ksk.Initialize(GPUcc, rksk);
+                    // GPUcc.AddRotationKey(j, std::move(ksk));
                 }
             }
             for (auto& j : i.rotOut) {
                 if (j && !GPUcc.HasRotationKey(j)) {
                     KeySwitchingKey ksk(GPUcc);
                     RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, j, cc);
-                    ksk.Initialize(GPUcc, rksk);
-                    GPUcc.AddRotationKey(j, std::move(ksk));
+                    GPUcc.AddRawRotationKey(j, std::move(rksk));
+                    // ksk.Initialize(GPUcc, rksk);
+                    // GPUcc.AddRotationKey(j, std::move(ksk));
                 }
             }
         }
@@ -837,16 +855,18 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
                 if (j && !GPUcc.HasRotationKey(j)) {
                     KeySwitchingKey ksk(GPUcc);
                     RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, j, cc);
-                    ksk.Initialize(GPUcc, rksk);
-                    GPUcc.AddRotationKey(j, std::move(ksk));
+                    GPUcc.AddRawRotationKey(j, std::move(rksk));
+                    // ksk.Initialize(GPUcc, rksk);
+                    // GPUcc.AddRotationKey(j, std::move(ksk));
                 }
             }
             for (auto& j : i.rotOut) {
                 if (j && !GPUcc.HasRotationKey(j)) {
                     KeySwitchingKey ksk(GPUcc);
                     RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, j, cc);
-                    ksk.Initialize(GPUcc, rksk);
-                    GPUcc.AddRotationKey(j, std::move(ksk));
+                    GPUcc.AddRawRotationKey(j, std::move(rksk));
+                    // ksk.Initialize(GPUcc, rksk);
+                    // GPUcc.AddRotationKey(j, std::move(ksk));
                 }
             }
         }
@@ -857,15 +877,17 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
         for (uint32_t j = 1; j < GPUcc.N / (2 * slots); j <<= 1) {
             KeySwitchingKey ksk(GPUcc);
             RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, j * slots, cc);
-            ksk.Initialize(GPUcc, rksk);
-            GPUcc.AddRotationKey(j * slots, std::move(ksk));
+            GPUcc.AddRawRotationKey(j * slots, std::move(rksk));
+            // ksk.Initialize(GPUcc, rksk);
+            // GPUcc.AddRotationKey(j * slots, std::move(ksk));
         }
     }
 
     KeySwitchingKey ksk(GPUcc);
     RawKeySwitchKey rksk = GetConjugateKeySwitchKey(keys, cc);
-    ksk.Initialize(GPUcc, rksk);
-    GPUcc.AddRotationKey(GPUcc.N * 2 - 1, std::move(ksk));
+    GPUcc.AddRawRotationKey(GPUcc.N * 2 - 1, std::move(rksk));
+    // ksk.Initialize(GPUcc, rksk);
+    // GPUcc.AddRotationKey(GPUcc.N * 2 - 1, std::move(ksk));
 
     result.correctionFactor =
         std::dynamic_pointer_cast<lbcrypto::FHECKKSRNS>(cc->GetScheme()->m_FHE)->m_correctionFactor;
