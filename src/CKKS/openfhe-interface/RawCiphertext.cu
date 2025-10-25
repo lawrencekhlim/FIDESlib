@@ -337,36 +337,22 @@ FIDESlib::CKKS::RawParams FIDESlib::CKKS::GetRawParams(lbcrypto::CryptoContext<l
         }
     }
 
-    // Initialize Chebyshev coefficients and bootstrap parameters
-    // This must always be done for bootstrapping to work, regardless of whether m_FHE is set
-    std::cout << "[DEBUG] GetRawParams: Initializing Chebyshev coefficients" << std::endl;
-    std::cout << "[DEBUG] SecretKeyDist: " << cryptoParams->GetSecretKeyDist() << std::endl;
-    
-    if (cryptoParams->GetSecretKeyDist() == SPARSE_TERNARY) {
-        result.coefficientsCheby = lbcrypto::FHECKKSRNS::g_coefficientsSparse;
-        result.bootK = 1.0;  // do not divide by k as we already did it during precomputation
-        result.doubleAngleIts = lbcrypto::FHECKKSRNS::R_SPARSE;
-        std::cout << "[DEBUG] Using SPARSE_TERNARY coefficients, size: " << result.coefficientsCheby.size() << std::endl;
-    } else if (cryptoParams->GetSecretKeyDist() == UNIFORM_TERNARY) {
-        result.coefficientsCheby = lbcrypto::FHECKKSRNS::g_coefficientsUniform;
-        result.doubleAngleIts = lbcrypto::FHECKKSRNS::R_UNIFORM;
-        // Try to get K_UNIFORM from m_FHE if available, otherwise use default
-        if (cc->GetScheme()->m_FHE) {
-            result.bootK = std::dynamic_pointer_cast<lbcrypto::FHECKKSRNS>(cc->GetScheme()->m_FHE)->K_UNIFORM;
+    if (cc->GetScheme()->m_FHE) {
+        if (cryptoParams->GetSecretKeyDist() == SPARSE_TERNARY) {
+            result.coefficientsCheby = lbcrypto::FHECKKSRNS::g_coefficientsSparse;
+            // k = K_SPARSE;
+            result.bootK = 1.0;  // do not divide by k as we already did it during precomputation
         } else {
-            result.bootK = 1.25;  // Default K_UNIFORM value
+            result.coefficientsCheby = lbcrypto::FHECKKSRNS::g_coefficientsUniform;
+            //coefficients = g_coefficientsUniform;
+            result.bootK = std::dynamic_pointer_cast<lbcrypto::FHECKKSRNS>(cc->GetScheme()->m_FHE)
+                               ->K_UNIFORM;  // lbcrypto::FHECKKSRNS::K_UNIFORM;
         }
-        std::cout << "[DEBUG] Using UNIFORM_TERNARY coefficients, size: " << result.coefficientsCheby.size() << std::endl;
-    } else {
-        // Default case (GAUSSIAN or other distributions) - use uniform coefficients
-        result.coefficientsCheby = lbcrypto::FHECKKSRNS::g_coefficientsUniform;
-        result.doubleAngleIts = lbcrypto::FHECKKSRNS::R_UNIFORM;
-        if (cc->GetScheme()->m_FHE) {
-            result.bootK = std::dynamic_pointer_cast<lbcrypto::FHECKKSRNS>(cc->GetScheme()->m_FHE)->K_UNIFORM;
-        } else {
-            result.bootK = 1.25;  // Default K_UNIFORM value
-        }
-        std::cout << "[DEBUG] Using default (GAUSSIAN) coefficients, size: " << result.coefficientsCheby.size() << std::endl;
+
+        if (cryptoParams->GetSecretKeyDist() == UNIFORM_TERNARY)
+            result.doubleAngleIts = lbcrypto::FHECKKSRNS::R_UNIFORM;
+        else
+            result.doubleAngleIts = lbcrypto::FHECKKSRNS::R_SPARSE;
     }
 
     result.p = cryptoParams->GetPlaintextModulus();
