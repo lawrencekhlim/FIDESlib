@@ -440,11 +440,18 @@ BootstrapPrecomputation& Context::GetBootPrecomputation(int slots) {
 std::map<int, RawKeySwitchKey> raw_rot_keys;
 std::map<int, KeySwitchingKey> rot_keys;
 
+void Context::SetLoadAndUnloadKeys(bool val) {
+    load_and_unload_keys = val;
+}
+
 void Context::AddRawRotationKey(int index, RawKeySwitchKey&& raw_ksk) {
     //index = index % (cc.N / 2);
     if (index < 0)
         index += this->N / 2;
     raw_rot_keys.emplace(index, std::move(raw_ksk));
+    if (!load_and_unload_keys) {
+        LoadRotationKeyGPU(index);
+    }
 }
 
 void Context::LoadRotationKeyGPU(int index) {
@@ -462,7 +469,9 @@ void Context::UnloadRotationKeyGPU(int index) {
 }
 
 void Context::ClearRotationKeysGPU() {
-    rot_keys.clear();
+    if (load_and_unload_keys) {
+        rot_keys.clear();
+    }
 }
 
 KeySwitchingKey& Context::GetRotationKey(int index) {

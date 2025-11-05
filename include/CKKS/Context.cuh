@@ -25,6 +25,8 @@ class Context {
    public:
     enum RESCALE_TECHNIQUE { NO_RESCALE, FIXEDMANUAL, FIXEDAUTO, FLEXIBLEAUTO, FLEXIBLEAUTOEXT };
 
+    bool load_and_unload_keys = false;
+
     Parameters param;
     const int logN, N, slots;
     const RESCALE_TECHNIQUE rescaleTechnique;
@@ -99,6 +101,8 @@ class Context {
     int GetDoubleAngleIts();
     void AddBootPrecomputation(int slots, BootstrapPrecomputation&& precomp) const;
     static BootstrapPrecomputation& GetBootPrecomputation(int slots);
+
+    void SetLoadAndUnloadKeys(bool val);
 
     void AddRawRotationKey(int index, RawKeySwitchKey&& raw_ksk);
     void LoadRotationKeyGPU(int index);
