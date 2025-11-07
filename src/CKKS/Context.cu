@@ -444,6 +444,17 @@ void Context::SetLoadAndUnloadKeys(bool val) {
     load_and_unload_keys = val;
 }
 
+void Context::AddBootstrappingRotationKey(int index) {
+    index = index % (this->N / 2);
+    if (index < 0)
+        index += this->N / 2;
+    bootstrapping_rotation_key_indices.push_back(index);
+}
+
+void Context::LoadBootstrappingRotationKeysGPU() {
+    LoadMultipleRotationKeysGPU(bootstrapping_rotation_key_indices);
+}
+
 void Context::AddRawRotationKey(int index, RawKeySwitchKey&& raw_ksk) {
     //index = index % (cc.N / 2);
     if (index < 0)
@@ -454,11 +465,25 @@ void Context::AddRawRotationKey(int index, RawKeySwitchKey&& raw_ksk) {
     }
 }
 
+void Context::LoadMultipleRotationKeysGPU(const std::vector<int>& indices) {
+    for (int index : indices) {
+        if (!rot_keys.contains(index))
+            LoadRotationKeyGPU(index);
+    }
+}
+
 void Context::LoadRotationKeyGPU(int index) {
     //index = index % (cc.N / 2);
     FIDESlib::CKKS::KeySwitchingKey rotation_key_gpu(*this);
-    rotation_key_gpu.Initialize(*this, raw_rot_keys.at(index));
+    rotation_key_gpu.InitializeAsync(*this, raw_rot_keys.at(index));
     AddRotationKey(index, std::move(rotation_key_gpu));
+}
+
+void Context::UnloadMultipleRotationKeysGPU(const std::vector<int>& indices) {
+    for (int index : indices) {
+        if (rot_keys.contains(index))
+            UnloadRotationKeyGPU(index);
+    }
 }
 
 void Context::UnloadRotationKeyGPU(int index) {

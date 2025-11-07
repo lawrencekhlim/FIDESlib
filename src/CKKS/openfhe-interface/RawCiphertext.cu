@@ -821,6 +821,7 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
                     KeySwitchingKey ksk(GPUcc);
                     RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, j, cc);
                     GPUcc.AddRawRotationKey(j, std::move(rksk));
+                    GPUcc.AddBootstrappingRotationKey(j);
                     // ksk.Initialize(GPUcc, rksk);
                     // GPUcc.AddRotationKey(j, std::move(ksk));
                 }
@@ -830,6 +831,7 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
                     KeySwitchingKey ksk(GPUcc);
                     RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, j, cc);
                     GPUcc.AddRawRotationKey(j, std::move(rksk));
+                    GPUcc.AddBootstrappingRotationKey(j);
                     // ksk.Initialize(GPUcc, rksk);
                     // GPUcc.AddRotationKey(j, std::move(ksk));
                 }
@@ -842,6 +844,7 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
                     KeySwitchingKey ksk(GPUcc);
                     RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, j, cc);
                     GPUcc.AddRawRotationKey(j, std::move(rksk));
+                    GPUcc.AddBootstrappingRotationKey(j);
                     // ksk.Initialize(GPUcc, rksk);
                     // GPUcc.AddRotationKey(j, std::move(ksk));
                 }
@@ -851,6 +854,7 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
                     KeySwitchingKey ksk(GPUcc);
                     RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, j, cc);
                     GPUcc.AddRawRotationKey(j, std::move(rksk));
+                    GPUcc.AddBootstrappingRotationKey(j);
                     // ksk.Initialize(GPUcc, rksk);
                     // GPUcc.AddRotationKey(j, std::move(ksk));
                 }
@@ -864,6 +868,7 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
             KeySwitchingKey ksk(GPUcc);
             RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, j * slots, cc);
             GPUcc.AddRawRotationKey(j * slots, std::move(rksk));
+            GPUcc.AddBootstrappingRotationKey(j * slots);
             // ksk.Initialize(GPUcc, rksk);
             // GPUcc.AddRotationKey(j * slots, std::move(ksk));
         }
@@ -872,6 +877,7 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
     KeySwitchingKey ksk(GPUcc);
     RawKeySwitchKey rksk = GetConjugateKeySwitchKey(keys, cc);
     GPUcc.AddRawRotationKey(GPUcc.N * 2 - 1, std::move(rksk));
+    GPUcc.AddBootstrappingRotationKey(GPUcc.N * 2 - 1);
     // ksk.Initialize(GPUcc, rksk);
     // GPUcc.AddRotationKey(GPUcc.N * 2 - 1, std::move(ksk));
 

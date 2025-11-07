@@ -51,6 +51,8 @@ class Context {
     const std::vector<dim3> limbGPUid;
     const std::vector<int> GPUrank;
 
+    std::vector<int> bootstrapping_rotation_key_indices;
+
     std::unique_ptr<RNSPoly> key_switch_aux = nullptr;
     std::unique_ptr<RNSPoly> key_switch_aux2 = nullptr;
     std::unique_ptr<RNSPoly> moddown_aux = nullptr;
@@ -104,8 +106,12 @@ class Context {
 
     void SetLoadAndUnloadKeys(bool val);
 
+    void AddBootstrappingRotationKey(int index);
+    void LoadBootstrappingRotationKeysGPU();
     void AddRawRotationKey(int index, RawKeySwitchKey&& raw_ksk);
+    void LoadMultipleRotationKeysGPU(const std::vector<int>& indices);
     void LoadRotationKeyGPU(int index);
+    void UnloadMultipleRotationKeysGPU(const std::vector<int>& indices);
     void UnloadRotationKeyGPU(int index);
     void ClearRotationKeysGPU();
 

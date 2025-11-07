@@ -27,6 +27,7 @@ class KeySwitchingKey {
     explicit KeySwitchingKey(Context& cc);
 
     void Initialize(Context& cc, RawKeySwitchKey& rkk);
+    void InitializeAsync(Context& cc, RawKeySwitchKey& rkk);
 };
 
 }  // namespace CKKS
