@@ -644,6 +644,8 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
             KeySwitchingKey ksk(GPUcc);
             RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, i, cc);
             GPUcc.AddRawRotationKey(i, std::move(rksk));
+            GPUcc.AddBootstrappingRotationKey(i);
+            // std::cout << "index = " << i << std::endl;
             // ksk.Initialize(GPUcc, rksk);
             // GPUcc.AddRotationKey(i, std::move(ksk));
         }
@@ -652,6 +654,8 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
             KeySwitchingKey ksk(GPUcc);
             RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, i, cc);
             GPUcc.AddRawRotationKey(i, std::move(rksk));
+            GPUcc.AddBootstrappingRotationKey(i);
+            // std::cout << "index = " << i << std::endl;
             // ksk.Initialize(GPUcc, rksk);
             // GPUcc.AddRotationKey(i, std::move(ksk));
         }
@@ -822,6 +826,7 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
                     RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, j, cc);
                     GPUcc.AddRawRotationKey(j, std::move(rksk));
                     GPUcc.AddBootstrappingRotationKey(j);
+                    // std::cout << "index = " << j << std::endl;
                     // ksk.Initialize(GPUcc, rksk);
                     // GPUcc.AddRotationKey(j, std::move(ksk));
                 }
@@ -832,6 +837,7 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
                     RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, j, cc);
                     GPUcc.AddRawRotationKey(j, std::move(rksk));
                     GPUcc.AddBootstrappingRotationKey(j);
+                    // std::cout << "index = " << j << std::endl;
                     // ksk.Initialize(GPUcc, rksk);
                     // GPUcc.AddRotationKey(j, std::move(ksk));
                 }
@@ -845,6 +851,7 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
                     RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, j, cc);
                     GPUcc.AddRawRotationKey(j, std::move(rksk));
                     GPUcc.AddBootstrappingRotationKey(j);
+                    // std::cout << "index = " << j << std::endl;
                     // ksk.Initialize(GPUcc, rksk);
                     // GPUcc.AddRotationKey(j, std::move(ksk));
                 }
@@ -855,6 +862,7 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
                     RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, j, cc);
                     GPUcc.AddRawRotationKey(j, std::move(rksk));
                     GPUcc.AddBootstrappingRotationKey(j);
+                    // std::cout << "index = " << j << std::endl;
                     // ksk.Initialize(GPUcc, rksk);
                     // GPUcc.AddRotationKey(j, std::move(ksk));
                 }
@@ -866,20 +874,24 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
     if (GPUcc.N / 2 != slots) {
         for (uint32_t j = 1; j < GPUcc.N / (2 * slots); j <<= 1) {
             KeySwitchingKey ksk(GPUcc);
-            RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, j * slots, cc);
-            GPUcc.AddRawRotationKey(j * slots, std::move(rksk));
-            GPUcc.AddBootstrappingRotationKey(j * slots);
+            int index = j * slots;
+            RawKeySwitchKey rksk = GetRotationKeySwitchKey(keys, index, cc);
+            GPUcc.AddRawRotationKey(index, std::move(rksk));
+            GPUcc.AddBootstrappingRotationKey(index);
+            // std::cout << "index = " << index << std::endl;
             // ksk.Initialize(GPUcc, rksk);
-            // GPUcc.AddRotationKey(j * slots, std::move(ksk));
+            // GPUcc.AddRotationKey(index, std::move(ksk));
         }
     }
 
     KeySwitchingKey ksk(GPUcc);
     RawKeySwitchKey rksk = GetConjugateKeySwitchKey(keys, cc);
-    GPUcc.AddRawRotationKey(GPUcc.N * 2 - 1, std::move(rksk));
-    GPUcc.AddBootstrappingRotationKey(GPUcc.N * 2 - 1);
+    auto index = GPUcc.N * 2 - 1;
+    GPUcc.AddRawRotationKey(index, std::move(rksk));
+    GPUcc.AddBootstrappingRotationKey(index);
     // ksk.Initialize(GPUcc, rksk);
-    // GPUcc.AddRotationKey(GPUcc.N * 2 - 1, std::move(ksk));
+    // GPUcc.AddRotationKey(index, std::move(ksk));
+    // std::cout << "last index = " << index << std::endl;
 
     result.correctionFactor =
         std::dynamic_pointer_cast<lbcrypto::FHECKKSRNS>(cc->GetScheme()->m_FHE)->m_correctionFactor;

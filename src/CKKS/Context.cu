@@ -4,6 +4,7 @@
 #include "CKKS/Context.cuh"
 
 #include <source_location>
+#include <mutex>
 #include "CKKS/BootstrapPrecomputation.cuh"
 #include "CKKS/KeySwitchingKey.cuh"
 
@@ -438,14 +439,19 @@ BootstrapPrecomputation& Context::GetBootPrecomputation(int slots) {
 }
 
 std::map<int, RawKeySwitchKey> raw_rot_keys;
+std::mutex raw_rot_keys_mutex;
+
 std::map<int, KeySwitchingKey> rot_keys;
+std::mutex rot_keys_mutex;
 
 void Context::SetLoadAndUnloadKeys(bool val) {
     load_and_unload_keys = val;
 }
 
 void Context::AddBootstrappingRotationKey(int index) {
-    index = index % (this->N / 2);
+    // std::cout << "N / 2 = " << this->N / 2 << std::endl;
+    // std::cout << "add bootstrapping index = " << index << std::endl;
+    // index = index % (this->N / 2);
     if (index < 0)
         index += this->N / 2;
     bootstrapping_rotation_key_indices.push_back(index);
@@ -455,34 +461,58 @@ void Context::LoadBootstrappingRotationKeysGPU() {
     LoadMultipleRotationKeysGPU(bootstrapping_rotation_key_indices);
 }
 
+std::vector<int> Context::GetBootstrappingRotationKeyIndices() {
+    return bootstrapping_rotation_key_indices;
+}
+
 void Context::AddRawRotationKey(int index, RawKeySwitchKey&& raw_ksk) {
     //index = index % (cc.N / 2);
+    // std::cout << "add raw rotation key = " << index << std::endl;
     if (index < 0)
         index += this->N / 2;
-    raw_rot_keys.emplace(index, std::move(raw_ksk));
+    {
+        std::lock_guard<std::mutex> lk(raw_rot_keys_mutex);
+        raw_rot_keys.emplace(index, std::move(raw_ksk));
+    }
     if (!load_and_unload_keys) {
         LoadRotationKeyGPU(index);
     }
 }
 
-void Context::LoadMultipleRotationKeysGPU(const std::vector<int>& indices) {
+void Context::LoadMultipleRotationKeysGPU(const std::vector<int> indices) {
     for (int index : indices) {
-        if (!rot_keys.contains(index))
-            LoadRotationKeyGPU(index);
+        if (index == 0)
+            continue;
+        {
+            std::lock_guard<std::mutex> lk(rot_keys_mutex);
+            if (rot_keys.contains(index))
+                continue;
+        }
+        LoadRotationKeyGPU(index);
     }
 }
 
 void Context::LoadRotationKeyGPU(int index) {
     //index = index % (cc.N / 2);
     FIDESlib::CKKS::KeySwitchingKey rotation_key_gpu(*this);
-    rotation_key_gpu.InitializeAsync(*this, raw_rot_keys.at(index));
+    {
+        std::lock_guard<std::mutex> lk(raw_rot_keys_mutex);
+        if (raw_rot_keys.find(index) == raw_rot_keys.end()) {
+            std::cerr << "Error: Rotation key for index " << index << " not found in raw rotation keys." << std::endl;
+            exit(1);
+        }
+
+        // Initialize while holding the raw key map lock to avoid concurrent erasure of the source raw key.
+        rotation_key_gpu.InitializeAsync(*this, raw_rot_keys.at(index));
+    }
+
+    // Add the prepared GPU rotation key into rot_keys (AddRotationKey will take its own lock).
     AddRotationKey(index, std::move(rotation_key_gpu));
 }
 
-void Context::UnloadMultipleRotationKeysGPU(const std::vector<int>& indices) {
+void Context::UnloadMultipleRotationKeysGPU(const std::vector<int> indices) {
     for (int index : indices) {
-        if (rot_keys.contains(index))
-            UnloadRotationKeyGPU(index);
+        UnloadRotationKeyGPU(index);
     }
 }
 
@@ -490,33 +520,50 @@ void Context::UnloadRotationKeyGPU(int index) {
     //index = index % (cc.N / 2);
     if (index < 0)
         index += this->N / 2;
-    rot_keys.erase(index);
+    std::lock_guard<std::mutex> lk(rot_keys_mutex);
+    if (rot_keys.contains(index))
+        rot_keys.erase(index);
 }
 
 void Context::ClearRotationKeysGPU() {
     if (load_and_unload_keys) {
+        std::lock_guard<std::mutex> lk(rot_keys_mutex);
         rot_keys.clear();
     }
 }
 
 KeySwitchingKey& Context::GetRotationKey(int index) {
     //index = index % (cc.N / 2);
-    if (index < 0)
+    // std::cout << "Requesting rotation key for index: " << index << std::endl;
+    if (index < 0) {
+        // std::cout << "GetRotationKey index negative: " << index << std::endl;
         index += this->N / 2;
-    if (!rot_keys.contains(index))
-        LoadRotationKeyGPU(index);
+    }
+    // std::cout << "Adjusted index: " << index << std::endl;
+    {
+        std::lock_guard<std::mutex> lk(rot_keys_mutex);
+        if (rot_keys.contains(index)) {
+            return rot_keys.at(index);
+        }
+    }
+    // Not present, load it (this will add it under rot_keys_mutex inside AddRotationKey).
+    LoadRotationKeyGPU(index);
+
+    std::lock_guard<std::mutex> lk(rot_keys_mutex);
     return rot_keys.at(index);
 }
 void Context::AddRotationKey(int index, KeySwitchingKey&& ksk) {
     //index = index % (cc.N / 2);
     if (index < 0)
         index += this->N / 2;
+    std::lock_guard<std::mutex> lk(rot_keys_mutex);
     rot_keys.emplace(index, std::move(ksk));
 }
 bool Context::HasRotationKey(int index) {
     //index = index % (cc.N / 2);
     if (index < 0)
         index += this->N / 2;
+    std::lock_guard<std::mutex> lk(raw_rot_keys_mutex);
     return raw_rot_keys.contains(index);
 }
 
@@ -530,15 +577,25 @@ KeySwitchingKey& Context::GetEvalKey() {
 }
 Context::~Context() {
     eval_key.reset();
-    rot_keys.clear();
+    {
+        std::lock_guard<std::mutex> lk(rot_keys_mutex);
+        rot_keys.clear();
+    }
     boot_precomps.clear();
 }
 
 void Context::AddBootPrecomputation(int slots, BootstrapPrecomputation&& precomp) const {
     {
+        // read rot_keys.size() under lock to avoid data races with concurrent loaders/unloaders
+        size_t loaded_count = 0;
+        {
+            std::lock_guard<std::mutex> lk(rot_keys_mutex);
+            loaded_count = rot_keys.size();
+        }
+
         std::cout << "Adding bootstrap precomputation to GPU for " << slots << " slots.\n"
-                  << "Rotation keys loaded: " << rot_keys.size() << " ~ "
-                  << 2 * ((long long)rot_keys.size() * dnum * (L + K + 1) * N * 8 / (1 << 20)) << "MB\n"
+                  << "Rotation keys loaded: " << loaded_count << " ~ "
+                  << 2 * ((long long)loaded_count * dnum * (L + K + 1) * N * 8 / (1 << 20)) << "MB\n"
                   << "Plaintexts loaded: "
                   << (precomp.CtS.size() == 0 ? (precomp.LT.A.size() + precomp.LT.invA.size())
                                               : (precomp.StC.size() * precomp.StC.at(0).A.size() +

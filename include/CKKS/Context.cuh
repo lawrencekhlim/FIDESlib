@@ -108,10 +108,11 @@ class Context {
 
     void AddBootstrappingRotationKey(int index);
     void LoadBootstrappingRotationKeysGPU();
+    std::vector<int> GetBootstrappingRotationKeyIndices();
     void AddRawRotationKey(int index, RawKeySwitchKey&& raw_ksk);
-    void LoadMultipleRotationKeysGPU(const std::vector<int>& indices);
+    void LoadMultipleRotationKeysGPU(const std::vector<int> indices);
     void LoadRotationKeyGPU(int index);
-    void UnloadMultipleRotationKeysGPU(const std::vector<int>& indices);
+    void UnloadMultipleRotationKeysGPU(const std::vector<int> indices);
     void UnloadRotationKeyGPU(int index);
     void ClearRotationKeysGPU();
 
