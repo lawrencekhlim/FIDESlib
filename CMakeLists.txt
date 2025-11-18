@@ -146,9 +146,9 @@ target_link_libraries(fideslib
 target_compile_options(fideslib PRIVATE
         $<$<COMPILE_LANGUAGE:CXX>:-Wall -ltbb -O3>
         $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:DEBUG>>:-g -O0 -rdynamic>
-        $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-Wall,-lineinfo,-ltbb,-O3 -rdc=true -ltbb>
-        $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:DEBUG>>:-G>
-        $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:RELWITHDEBINFO>>:>
+        $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-Wall,-lineinfo,-ltbb,-O3 -rdc=true -ltbb -lineinfo>
+        $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:DEBUG>>:-G -g>
+        $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:RELWITHDEBINFO>>:-lineinfo>
 )
 
 set_target_properties(fideslib PROPERTIES
@@ -197,9 +197,10 @@ set_target_properties(dummy PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON
 )
 target_compile_options(dummy PRIVATE
         $<$<COMPILE_LANGUAGE:CXX>:-Wall -fchar8_t>
-        $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-Wall,-fchar8_t,-lineinfo>
+        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:DEBUG>>:-g -O0>
+        $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-Wall,-fchar8_t,-lineinfo -lineinfo>
         $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:DEBUG>>:-G -g>
-        $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:RELWITHDEBINFO>>:>
+        $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:RELWITHDEBINFO>>:-lineinfo>
 )
 
 ############### Configuration export ###################

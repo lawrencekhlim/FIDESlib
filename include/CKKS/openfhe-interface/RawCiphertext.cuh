@@ -34,7 +34,7 @@ struct RawCipherText {
 
 struct RawPlainText {
     //  lbcrypto::CryptoContext<lbcrypto::DCRTPoly> & cc; // Original CryptoContext object from OpenFHE;
-    lbcrypto::Plaintext originalPlainText;  // Original Ciphertext object from OpenFHE;
+    lbcrypto::ConstPlaintext originalPlainText;  // Original Plaintext object from OpenFHE;
     std::vector<std::vector<uint64_t>> sub_0;
     std::vector<uint64_t> moduli;  // moduli for each limb
     int numRes;     // number of residues of ciphertext, length of moduli array and first dimension of sub-ciphertexts
@@ -94,7 +94,7 @@ RawCipherText GetRawCipherText(lbcrypto::CryptoContext<lbcrypto::DCRTPoly>& cc,
 
 void GetOpenFHECipherText(lbcrypto::Ciphertext<lbcrypto::DCRTPoly> result, RawCipherText raw, int REV = 1);
 
-RawPlainText GetRawPlainText(lbcrypto::CryptoContext<lbcrypto::DCRTPoly>& cc, lbcrypto::Plaintext pt);
+RawPlainText GetRawPlainText(lbcrypto::CryptoContext<lbcrypto::DCRTPoly>& cc, lbcrypto::ConstPlaintext pt);
 
 void GetOpenFHEPlaintext(lbcrypto::Plaintext result, RawPlainText raw, int REV = 1);
 

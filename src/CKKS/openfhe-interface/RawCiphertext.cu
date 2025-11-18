@@ -159,7 +159,7 @@ void FIDESlib::CKKS::GetOpenFHEPlaintext(lbcrypto::Plaintext result, RawPlainTex
 }
 
 FIDESlib::CKKS::RawPlainText FIDESlib::CKKS::GetRawPlainText(lbcrypto::CryptoContext<lbcrypto::DCRTPoly>& cc,
-                                                             lbcrypto::Plaintext pt) {
+                                                             lbcrypto::ConstPlaintext pt) {
     RawPlainText result;  //{.cc = cc};
     result.originalPlainText = pt;
     result.numRes = pt->GetElement<DCRTPoly>().GetAllElements().size();
@@ -525,21 +525,7 @@ void FIDESlib::CKKS::AddBootstrapPrecomputation(lbcrypto::CryptoContext<lbcrypto
                 result.LT.A.emplace_back(GPUcc, raw);
                 if constexpr (remove_extension)
                     result.LT.A.back().c0.freeSpecialLimbs();
-                if (0) {
-                    RawPlainText raw2;
-                    result.LT.A.back().store(raw2);
-                    lbcrypto::Plaintext pt = auxA.at(0);
-                    GetOpenFHEPlaintext(pt, raw2);
-                }
-
                 // result.A.back().moddown();
-
-                if (0) {
-                    RawPlainText raw2;
-                    result.LT.A.back().store(raw2);
-                    lbcrypto::Plaintext pt = auxA.at(0);
-                    GetOpenFHEPlaintext(pt, raw2);
-                }
             }
 
             result.LT.invA.clear();
