@@ -29,6 +29,14 @@ Ciphertext::Ciphertext(Context& cc, const RawCipherText& rawct)
     c2.emplace(cc,cc.L,true);
 }
 
+void Ciphertext::setIndependentStreams(streamIndepentSet& sis){
+    c0.setIndependentStreams(sis);
+    c1.setIndependentStreams(sis);
+    if(c2.has_value()){
+        (*c2).setIndependentStreams(sis);
+    }
+}
+
 void Ciphertext::add(const Ciphertext& b) {
     CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
 

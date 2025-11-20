@@ -31,8 +31,19 @@ template __global__ void sub_(uint32_t* a, const uint32_t* b, const int primeId)
 
 __global__ void add_(void** a, void** b, const int primeid_init) {
 
-    const int primeid = C_.primeid_flattened[primeid_init + blockIdx.y];
-    const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    // const int primeid = C_.primeid_flattened[primeid_init + blockIdx.y];
+    // const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    // if (ISU64(primeid)) {
+    //     ((uint64_t*)a[blockIdx.y])[idx] =
+    //         modadd(((uint64_t*)a[blockIdx.y])[idx], ((uint64_t*)b[blockIdx.y])[idx], primeid);
+    // } else {
+    //     ((uint32_t*)a[blockIdx.y])[idx] =
+    //         modadd(((uint32_t*)a[blockIdx.y])[idx], ((uint32_t*)b[blockIdx.y])[idx], primeid);
+    // }
+    const int limb_id = blockIdx.y; // global limb index
+    const int idx     = threadIdx.x + blockDim.x * blockIdx.x;
+    const int primeid = C_.primeid_flattened[primeid_init + limb_id];
+
     if (ISU64(primeid)) {
         ((uint64_t*)a[blockIdx.y])[idx] =
             modadd(((uint64_t*)a[blockIdx.y])[idx], ((uint64_t*)b[blockIdx.y])[idx], primeid);

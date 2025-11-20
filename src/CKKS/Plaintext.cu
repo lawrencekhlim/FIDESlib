@@ -53,6 +53,10 @@ void Plaintext::moddown() {
     c0.moddown(true, true);
 }
 
+void Plaintext::setIndependentStreams(streamIndepentSet& sis){
+    c0.setIndependentStreams(sis);
+}
+
 bool Plaintext::adjustPlaintextToCiphertext(const Plaintext& p, const Ciphertext& c) {
     CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
     if (cc.rescaleTechnique == Context::FIXEDAUTO) {

@@ -478,6 +478,10 @@ void RNSPoly::loadConstant(const std::vector<std::vector<uint64_t>>& data, const
 
     assert(limbsize - 1 <= cc.L);
     grow(limbsize - 1, true, true);
+    // if(newStreamSet && newStreamSetIndex>=0){
+
+    //     setIndependentStreams(cc.independetStreamSet[newStreamSetIndex]);
+    // }
     assert(level == limbsize - 1);
     for (size_t i = 0; i < limbsize; ++i) {
         assert(moduli[i] == cc.prime.at(i).p);
@@ -492,6 +496,15 @@ void RNSPoly::loadConstant(const std::vector<std::vector<uint64_t>>& data, const
             SWITCH(j.SPECIALlimb[i - limbsize], load_convert(data[i]));
         }
     }
+}
+
+void RNSPoly::setIndependentStreams(streamIndepentSet& sis){
+    assert(GPU.size() == 1);
+    for (int i = 0; i < (int)GPU.size(); ++i) {
+        GPU.at(i).setIndependentStreams(i,sis);
+    }
+    newStreamSet=&sis;
+    newStreamSetIndex = cc.independetStreamSet.size()-1;
 }
 
 void RNSPoly::broadcastLimb0() {

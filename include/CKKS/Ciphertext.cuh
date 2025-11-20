@@ -42,6 +42,7 @@ class Ciphertext {
     void subPtFrom(const Ciphertext& ciphertext, const Plaintext& plaintext);
 
     void addScalar(const double c);
+    void setIndependentStreams(streamIndepentSet& sis);
 
     void multPt(const Plaintext& b, bool rescale = false);
     void multPt(const Ciphertext& c, const Plaintext& b, bool rescale = false);

@@ -13,6 +13,7 @@ namespace FIDESlib::CKKS {
 class KeySwitchingKey;
 
 class Context;
+class streamIndepentSet;
 
 class RNSPoly {
     Context& cc;
@@ -20,7 +21,8 @@ class RNSPoly {
 
    public:
     std::vector<LimbPartition> GPU;
-
+    streamIndepentSet* newStreamSet=nullptr;
+    int newStreamSetIndex=-1;
     explicit RNSPoly(Context& context, int level = -1, bool single_malloc = false);
 
     void grow(int level, bool single_malloc = false, bool constant = false);
@@ -68,6 +70,8 @@ class RNSPoly {
     RNSPoly clone(bool single_malloc = false) const;
 
     void generateDecompAndDigit();
+
+    void setIndependentStreams(streamIndepentSet& sis);
 
     void mult1AddMult23(const RNSPoly& poly1, const RNSPoly& poly2, const RNSPoly& poly3);
 

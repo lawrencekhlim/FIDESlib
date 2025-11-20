@@ -22,10 +22,10 @@ class Limb {
 
    public:
     int primeid;
-    Stream& stream;
+    Stream *stream;
     VectorGPU<T> v;
     VectorGPU<T> aux;
-
+    void* dat_pinned=nullptr;
    private:
     const int id;
     const bool raw;
@@ -44,6 +44,8 @@ class Limb {
     Limb(Context& context, T* data, const int offset, const int device, Stream& stream, const int primeid = -1,
          T* data_aux = nullptr, const int offset_aux = 0);
     //void free();
+
+    void setNewStream(Stream& s);
 
     void add(const LimbImpl& l);
 
@@ -67,6 +69,9 @@ class Limb {
 
     template <typename Q>
     void load(const std::vector<Q>& dat_);
+
+    template <typename Q>
+    void load(Q* dat_,size_t size);
 
     void load(const VectorGPU<T>& dat);
 

@@ -163,7 +163,7 @@ TEST_P(LimbKernelTest, TestMultKernel64) {
                     v3[k] = ((__uint128_t)v3[k]) * ((__uint128_t)v2[k]) % ((__uint128_t)hC_.primes[i]);
 
                 FIDESlib::mult_<uint64_t, FIDESlib::ALGO_NATIVE>
-                    <<<cc.N / 256, 256, 0, limb.stream.ptr>>>(limb.v.data, limb2.v.data, i);
+                    <<<cc.N / 256, 256, 0, limb.stream->ptr>>>(limb.v.data, limb2.v.data, i);
 
                 limb.store(v);
 
@@ -214,7 +214,7 @@ TEST_P(LimbKernelTest, TestBetterBarretMultKernel64) {
                     v3[k] = ((__uint128_t)v3[k]) * ((__uint128_t)v2[k]) % ((__uint128_t)hC_.primes[i]);
 
                 FIDESlib::mult_<uint64_t, FIDESlib::ALGO_BARRETT>
-                    <<<cc.N / 256, 256, 0, limb.stream.ptr>>>(limb.v.data, limb2.v.data, i);
+                    <<<cc.N / 256, 256, 0, limb.stream->ptr>>>(limb.v.data, limb2.v.data, i);
 
                 limb.store(v);
                 FIDESlib::CudaHostSync();
@@ -268,7 +268,7 @@ TEST_P(LimbKernelTest, Test53bitFp64debMultKernel64) {
                     v3[k] = ((__uint128_t)v3[k]) * ((__uint128_t)v2[k]) % ((__uint128_t)hC_.primes[i]);
 
                 FIDESlib::mult_<uint64_t, FIDESlib::ALGO_BARRETT_FP64>
-                    <<<cc.N / 256, 256, 0, limb.stream.ptr>>>(limb.v.data, limb2.v.data, i);
+                    <<<cc.N / 256, 256, 0, limb.stream->ptr>>>(limb.v.data, limb2.v.data, i);
 
                 limb.store(v);
                 FIDESlib::CudaHostSync();
@@ -321,7 +321,7 @@ TEST_P(LimbKernelTest, TestBarretPsiKernel64) {
                     v3[k] = ((__uint128_t)v3[k]) * ((__uint128_t)v2[k]) % ((__uint128_t)hC_.primes[i]);
 
                 FIDESlib::scalar_mult_<uint64_t, FIDESlib::ALGO_SHOUP>
-                    <<<cc.N / 256, 256, 0, limb.stream.ptr>>>(limb.v.data, v2[0], i, aux_psi);
+                    <<<cc.N / 256, 256, 0, limb.stream->ptr>>>(limb.v.data, v2[0], i, aux_psi);
 
                 limb.store(v);
                 FIDESlib::CudaHostSync();
@@ -376,7 +376,7 @@ TEST_P(LimbKernelTest32, TestMultKernel32) {
                     v3[k] = ((__uint128_t)v3[k]) * ((__uint128_t)v2[k]) % ((__uint128_t)hC_.primes[i]);
 
                 FIDESlib::mult_<uint32_t, FIDESlib::ALGO_NATIVE>
-                    <<<cc.N / 256, 256, 0, limb.stream.ptr>>>(limb.v.data, limb2.v.data, i);
+                    <<<cc.N / 256, 256, 0, limb.stream->ptr>>>(limb.v.data, limb2.v.data, i);
 
                 limb.store(v);
                 FIDESlib::CudaHostSync();

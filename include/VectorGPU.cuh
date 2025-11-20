@@ -41,7 +41,7 @@ class VectorGPU {
     VectorGPU<T>& operator=(const VectorGPU<T>& v) = delete;
     VectorGPU(const VectorGPU<T>& v) = delete;
     VectorGPU(T* data, const int size, const int device, const int offset = 0);
-    VectorGPU(const Stream& stream, const int size, const int device, const T* src = nullptr);
+    VectorGPU(Stream& stream, const int size, const int device, const T* src = nullptr);
     void free(const Stream& stream);
     ~VectorGPU();
 };

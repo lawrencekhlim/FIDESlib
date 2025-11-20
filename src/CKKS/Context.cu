@@ -63,6 +63,63 @@ std::vector<std::vector<std::vector<LimbRecord>>> Context::generateDecompMeta(
     return decompMeta;
 }
 
+void Context::initStreamsForSet(streamIndepentSet& sis) {
+    for (auto& inner : sis.metaStream)
+        for (auto& st : inner)
+            st.init();
+
+    for (auto& st : sis.specialMetaStream)
+        st.init();
+
+    for (auto& midVec : sis.decompMetaStream)
+        for (auto& innerVec : midVec)
+            for (auto& st : innerVec)
+                st.init();
+
+    for (auto& midVec : sis.digitMetaStream)
+        for (auto& innerVec : midVec)
+            for (auto& st : innerVec)
+                st.init();
+}
+
+int Context::createNewStreamSet(){
+    int devs = GPUid.size();
+    
+    independetStreamSet.emplace_back();
+    streamIndepentSet& sis = independetStreamSet.back();
+
+    sis.metaStream.resize(meta.size());
+    for (int i=0;i<meta.size();i++)
+        sis.metaStream[i].resize(meta[i].size());
+
+    sis.specialMetaStream.resize(specialMeta.size());
+
+    sis.decompMetaStream.resize(decompMeta.size());
+    for (int i =0;i<decompMeta.size();i++) {
+        sis.decompMetaStream[i].resize(decompMeta[i].size());
+        for (int j =0;j<decompMeta[i].size();j++)
+            sis.decompMetaStream[i][j].resize(decompMeta[i][j].size());
+    }
+
+    sis.digitMetaStream.resize(digitMeta.size());
+    for (int i =0;i<digitMeta.size();i++) {
+        sis.digitMetaStream[i].resize(digitMeta[i].size());
+        for (int j =0;j<digitMeta[i].size();j++)
+            sis.digitMetaStream[i][j].resize(digitMeta[i][j].size());
+    }
+
+    // now actually create CUDA streams for every Stream
+    initStreamsForSet(sis);
+    return independetStreamSet.size()-1;
+
+}
+
+void Context::deleteLastStreamIndependentSet() {
+    if (!independetStreamSet.empty()) {
+        independetStreamSet.pop_back();
+    }
+}
+
 bool Context::isValidPrimeId(const int i) const {
     return (i >= 0 && i < L + 1 + K);
 }
@@ -534,12 +591,12 @@ void Context::ClearRotationKeysGPU() {
 
 KeySwitchingKey& Context::GetRotationKey(int index) {
     //index = index % (cc.N / 2);
-    // std::cout << "Requesting rotation key for index: " << index << std::endl;
+    std::cout << "Requesting rotation key for index: " << index << std::endl;
     if (index < 0) {
-        // std::cout << "GetRotationKey index negative: " << index << std::endl;
+        std::cout << "GetRotationKey index negative: " << index << std::endl;
         index += this->N / 2;
     }
-    // std::cout << "Adjusted index: " << index << std::endl;
+    std::cout << "Adjusted index: " << index << std::endl;
     {
         std::lock_guard<std::mutex> lk(rot_keys_mutex);
         if (rot_keys.contains(index)) {

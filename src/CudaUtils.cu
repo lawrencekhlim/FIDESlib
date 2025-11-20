@@ -21,62 +21,62 @@ std::map<std::string, std::pair<nvtx3::unique_range_in<my_domain>*, int>> lifeti
 
 void CudaNvtxStart(const std::string msg, NVTX_CATEGORIES cat, int val) {
 
-    if (cat == FUNCTION) {
-        using namespace nvtx3;
-        int size = msg.size();
-        const event_attributes attr{msg,
-                                    rgb{(uint8_t)(255 - 101 * msg[size / 6]), (uint8_t)(255 - 101 * msg[size * 3 / 6]),
-                                        (uint8_t)(255 - 101 * msg[size * 5 / 6])},
-                                    payload{val}, category{cat}};
+    // if (cat == FUNCTION) {
+    //     using namespace nvtx3;
+    //     int size = msg.size();
+    //     const event_attributes attr{msg,
+    //                                 rgb{(uint8_t)(255 - 101 * msg[size / 6]), (uint8_t)(255 - 101 * msg[size * 3 / 6]),
+    //                                     (uint8_t)(255 - 101 * msg[size * 5 / 6])},
+    //                                 payload{val}, category{cat}};
 
-        nvtxDomainRangePushEx_impl_init_v3(D, reinterpret_cast<const nvtxEventAttributes_t*>(&attr));
-        //nvtxRangePushEx(reinterpret_cast<const nvtxEventAttributes_t*>(&attr));
-    } else if (cat == LIFETIME) {
+    //     nvtxDomainRangePushEx_impl_init_v3(D, reinterpret_cast<const nvtxEventAttributes_t*>(&attr));
+    //     //nvtxRangePushEx(reinterpret_cast<const nvtxEventAttributes_t*>(&attr));
+    // } else if (cat == LIFETIME) {
 
-        using namespace nvtx3;
-        int size = msg.size();
-        auto& [r, i] = lifetimes_map[msg];
-        std::string m = std::to_string(i + 1) + std::string(" x ") + msg;
-        const event_attributes attr{m,
-                                    rgb{(uint8_t)(255 - 101 * msg[size / 6]), (uint8_t)(255 - 101 * msg[size * 3 / 6]),
-                                        (uint8_t)(255 - 101 * msg[size * 5 / 6])},
-                                    payload{i + 1}, category{cat}};
-        i = i + 1;
-        if (!r) {
-            r = new unique_range_in<my_domain>(attr);
-        } else {
-            *r = unique_range_in<my_domain>(attr);
-        }
-    }
+    //     using namespace nvtx3;
+    //     int size = msg.size();
+    //     auto& [r, i] = lifetimes_map[msg];
+    //     std::string m = std::to_string(i + 1) + std::string(" x ") + msg;
+    //     const event_attributes attr{m,
+    //                                 rgb{(uint8_t)(255 - 101 * msg[size / 6]), (uint8_t)(255 - 101 * msg[size * 3 / 6]),
+    //                                     (uint8_t)(255 - 101 * msg[size * 5 / 6])},
+    //                                 payload{i + 1}, category{cat}};
+    //     i = i + 1;
+    //     if (!r) {
+    //         r = new unique_range_in<my_domain>(attr);
+    //     } else {
+    //         *r = unique_range_in<my_domain>(attr);
+    //     }
+    // }
     //nvtxRangePushA(msg.c_str());
 }
 
 void CudaNvtxStop(const std::string msg, NVTX_CATEGORIES cat) {
-    if (cat == FUNCTION) {
-        nvtxDomainRangePop(D);
-    } else if (cat == LIFETIME) {
-        using namespace nvtx3;
-        int size = msg.size();
+    // if (cat == FUNCTION) {
+    //     nvtxDomainRangePop(D);
+    // } else if (cat == LIFETIME) {
+    //     using namespace nvtx3;
+    //     int size = msg.size();
 
-        auto& [r, i] = lifetimes_map[msg];
-        std::string m = std::to_string(i - 1) + std::string(" x ") + msg;
-        const event_attributes attr{m,
-                                    rgb{(uint8_t)(255 - 101 * msg[size / 6]), (uint8_t)(255 - 101 * msg[size * 3 / 6]),
-                                        (uint8_t)(255 - 101 * msg[size * 5 / 6])},
-                                    payload{i - 1}, category{cat}};
+    //     auto& [r, i] = lifetimes_map[msg];
+    //     std::string m = std::to_string(i - 1) + std::string(" x ") + msg;
+    //     const event_attributes attr{m,
+    //                                 rgb{(uint8_t)(255 - 101 * msg[size / 6]), (uint8_t)(255 - 101 * msg[size * 3 / 6]),
+    //                                     (uint8_t)(255 - 101 * msg[size * 5 / 6])},
+    //                                 payload{i - 1}, category{cat}};
 
-        i = i - 1;
-        if (i <= 0) {
-            if (r) {
-                delete r;
-                r = nullptr;
-            }
-        } else {
-            *r = unique_range_in<my_domain>(attr);
-        }
+    //     i = i - 1;
+    //     if (i <= 0) {
+    //         if (r) {
+    //             delete r;
+    //             r = nullptr;
+    //         }
+    //     } else {
+    //         *r = unique_range_in<my_domain>(attr);
+    //     }
 
-        //nvtxRangePushEx(reinterpret_cast<const nvtxEventAttributes_t*>(&attr));
-    }
+    //     //nvtxRangePushEx(reinterpret_cast<const nvtxEventAttributes_t*>(&attr));
+    // }
 }
 
 void CudaHostSync() {

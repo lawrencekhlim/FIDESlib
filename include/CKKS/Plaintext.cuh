@@ -32,6 +32,7 @@ class Plaintext {
 
     void moddown();
     bool adjustPlaintextToCiphertext(const Plaintext& p, const Ciphertext& c);
+    void setIndependentStreams(streamIndepentSet& sis);
 };
 
 }  // namespace FIDESlib::CKKS

@@ -307,7 +307,7 @@ TEST_P(FailNTTTest, TestLimbNTT_1D_small) {
         int bytes = sizeof(uint64_t) * blockDim.x * 3;
 
         FIDESlib::NTT_1D<uint64_t>
-            <<<gridDim, blockDim, bytes, limb2.stream.ptr>>>(v.data, nullptr, 2 * blockDim.x, primeid, 3);
+            <<<gridDim, blockDim, bytes, limb2.stream->ptr>>>(v.data, nullptr, 2 * blockDim.x, primeid, 3);
 
         std::vector<uint64_t> res_gpu;
         limb2.store(res_gpu);
@@ -339,7 +339,7 @@ TEST_P(FailNTTTest, TestLimbNTT_1D_small) {
         CudaCheckErrorMod;
         ASSERT_EQ(res_cpu, res_gpu);
 
-        FIDESlib::INTT_1D<uint64_t><<<gridDim, blockDim, bytes, limb2.stream.ptr>>>(
+        FIDESlib::INTT_1D<uint64_t><<<gridDim, blockDim, bytes, limb2.stream->ptr>>>(
             v.data, nullptr, 2 * blockDim.x, primeid, FIDESlib::modinv(N, hC_.primes[primeid]), 3);
         cudaDeviceSynchronize();
 
@@ -390,7 +390,7 @@ TEST_P(NTTTest, TestLimbNTT_1D) {
         int bytes = sizeof(uint64_t) * blockDim.x * 3;
 
         FIDESlib::NTT_1D<uint64_t>
-            <<<gridDim, blockDim, bytes, limb2.stream.ptr>>>(v.data, nullptr, blockDim.x, primeid, logN);
+            <<<gridDim, blockDim, bytes, limb2.stream->ptr>>>(v.data, nullptr, blockDim.x, primeid, logN);
 
         std::vector<uint64_t> res_gpu;
         limb2.store(res_gpu);
@@ -457,7 +457,7 @@ TEST_P(NTTTest, TestLimbBitReverse) {
         FIDESlib::CKKS::Limb<uint64_t> limb2(cc, GPUs[0], s, 0);
         limb2.load(v2);
 
-        FIDESlib::Bit_Reverse<<<cc.N / 128, 128, 0, limb2.stream.ptr>>>(limb2.v.data, cc.N);
+        FIDESlib::Bit_Reverse<<<cc.N / 128, 128, 0, limb2.stream->ptr>>>(limb2.v.data, cc.N);
 
         std::vector<uint64_t> res_gpu;
         limb2.store(res_gpu);
@@ -465,7 +465,7 @@ TEST_P(NTTTest, TestLimbBitReverse) {
         FIDESlib::bit_reverse_vector(v2);
         ASSERT_EQ(v2, res_gpu);
 
-        FIDESlib::Bit_Reverse<<<cc.N / 128, 128, 0, limb2.stream.ptr>>>(limb2.v.data, cc.N);
+        FIDESlib::Bit_Reverse<<<cc.N / 128, 128, 0, limb2.stream->ptr>>>(limb2.v.data, cc.N);
 
         // END GPU SETUP
 
@@ -526,12 +526,12 @@ TEST_P(NTTTest, TestLimbNTTSecondHalf) {
         dim3 gridDim{v.size / blockDim.x / 2 / 4};
         int bytes = sizeof(uint64_t) * blockDim.x * (9 + (algo == 2 || algo == 3 ? 1 : 0));
 
-        FIDESlib::VectorGPU<uint64_t> aux(limb2.stream, v.size, v.device);
+        FIDESlib::VectorGPU<uint64_t> aux(*limb2.stream, v.size, v.device);
 
-        FIDESlib::NTT_<uint64_t, true, algo><<<gridDim, blockDim, bytes, limb2.stream.ptr>>>(v.data, primeid, aux.data);
+        FIDESlib::NTT_<uint64_t, true, algo><<<gridDim, blockDim, bytes, limb2.stream->ptr>>>(v.data, primeid, aux.data);
         std::vector<uint64_t> res_gpu;
         limb2.load(aux);
-        aux.free(limb2.stream);
+        aux.free(*limb2.stream);
         limb2.store(res_gpu);
         cudaDeviceSynchronize();
 
@@ -608,13 +608,13 @@ TEST_P(FailNTTTest32, TestLimbNTTSecondHalf32) {
         dim3 gridDim{v.size / blockDim.x / 2 / 4};
         int bytes = sizeof(uint64_t) * blockDim.x * (9 + (algo == 2 || algo == 3 ? 1 : 0));
 
-        FIDESlib::VectorGPU<uint32_t> aux(limb2.stream, v.size, v.device);
+        FIDESlib::VectorGPU<uint32_t> aux(*limb2.stream, v.size, v.device);
 
-        FIDESlib::NTT_<uint32_t, true, algo><<<gridDim, blockDim, bytes, limb2.stream.ptr>>>(v.data, primeid, aux.data);
+        FIDESlib::NTT_<uint32_t, true, algo><<<gridDim, blockDim, bytes, limb2.stream->ptr>>>(v.data, primeid, aux.data);
 
         std::vector<uint32_t> res_gpu;
         limb2.load(aux);
-        aux.free(limb2.stream);
+        aux.free(*limb2.stream);
         limb2.store(res_gpu);
         cudaDeviceSynchronize();
 
@@ -694,16 +694,16 @@ TEST_P(FailNTTTest, TestLimbINTTSecondHalfSmall) {
         dim3 gridDim{v.size / blockDim.x / 2 / 4};
         int bytes = sizeof(uint64_t) * blockDim.x * (9 + (algo == 2 || algo == 3 ? 1 : 0));
 
-        FIDESlib::VectorGPU<uint64_t> aux(limb2.stream, v.size, v.device);
+        FIDESlib::VectorGPU<uint64_t> aux(*limb2.stream, v.size, v.device);
 
         FIDESlib::INTT_<uint64_t, false, algo>
-            <<<gridDim, blockDim, bytes, limb2.stream.ptr>>>(v.data, primeid, aux.data);
+            <<<gridDim, blockDim, bytes, limb2.stream->ptr>>>(v.data, primeid, aux.data);
 
         std::vector<uint64_t> res_gpu;
         cudaDeviceSynchronize();
         limb2.load(aux);
         cudaDeviceSynchronize();
-        aux.free(limb2.stream);
+        aux.free(*limb2.stream);
         limb2.store(res_gpu);
         cudaDeviceSynchronize();
         //res_gpu.resize(blockDim.x * 2);
@@ -788,14 +788,14 @@ TEST_P(FailNTTTest, TestLimbINTTSecondHalf) {
         dim3 gridDim{v.size / blockDim.x / 2 / 4};
         int bytes = sizeof(uint64_t) * blockDim.x * (9 + (algo == 2 || algo == 3 ? 1 : 0));
 
-        FIDESlib::VectorGPU<uint64_t> aux(limb2.stream, v.size, v.device);
+        FIDESlib::VectorGPU<uint64_t> aux(*limb2.stream, v.size, v.device);
 
         FIDESlib::INTT_<uint64_t, true, algo>
-            <<<gridDim, blockDim, bytes, limb2.stream.ptr>>>(v.data, primeid, aux.data);
+            <<<gridDim, blockDim, bytes, limb2.stream->ptr>>>(v.data, primeid, aux.data);
 
         std::vector<uint64_t> res_gpu;
         limb2.load(aux);
-        aux.free(limb2.stream);
+        aux.free(*limb2.stream);
         limb2.store(res_gpu);
         cudaDeviceSynchronize();
         //res_gpu.resize(blockDim.x * 2);
@@ -1124,14 +1124,14 @@ TEST_P(FailNTTTest, TestLimbNTTtoINTT) {
         int bytes = sizeof(uint64_t) * blockDim.x * (9 + (algo == 2 || algo == 3 ? 1 : 0));
 
         FIDESlib::NTT_<uint64_t, false, algo>
-            <<<gridDim, blockDim, bytes, limb2.stream.ptr>>>(limb2.v.data, primeid, limb2.aux.data);
+            <<<gridDim, blockDim, bytes, limb2.stream->ptr>>>(limb2.v.data, primeid, limb2.aux.data);
         CudaCheckErrorMod;
         blockDim = (1 << ((cc.logN) / 2 - 1));
         gridDim = {limb2.v.size / blockDim.x / 2 / 4};
         bytes = sizeof(uint64_t) * blockDim.x * (9 + (algo == 2 || algo == 3 ? 1 : 0));
 
         FIDESlib::NTT_<uint64_t, true, algo>
-            <<<gridDim, blockDim, bytes, limb2.stream.ptr>>>(limb2.aux.data, primeid, limb2.v.data);
+            <<<gridDim, blockDim, bytes, limb2.stream->ptr>>>(limb2.aux.data, primeid, limb2.v.data);
         ///
         CudaCheckErrorMod;
 

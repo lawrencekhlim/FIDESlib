@@ -14,7 +14,7 @@
 namespace FIDESlib {
 namespace CKKS {
 class Context;
-
+class streamIndepentSet;
 class KeySwitchingKey {
     static constexpr const char* loc{"KeySwitchingKey"};
     CudaNvtxRange my_range;

@@ -7,6 +7,7 @@
 
 namespace FIDESlib::CKKS {
 class Context;
+class streamIndepentSet;
 class Ciphertext;
 class KeySwitchingKey;
 class Plaintext;

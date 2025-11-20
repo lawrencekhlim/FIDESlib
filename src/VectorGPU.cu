@@ -2,6 +2,7 @@
 // Created by carlosad on 2/05/24.
 //
 #include "VectorGPU.cuh"
+#include <thread>
 
 namespace FIDESlib {
 template <typename T>
@@ -44,7 +45,7 @@ void VectorGPU<T>::free(const Stream& stream) {
 }
 
 template <typename T>
-VectorGPU<T>::VectorGPU(const Stream& stream, const int size, const int device, const T* src)
+VectorGPU<T>::VectorGPU(Stream& stream, const int size, const int device, const T* src)
     : data(nullptr), size(size), device(device), freeing(false), managed(true) {
     assert(size > 0);
     assert(device >= 0);
@@ -62,7 +63,25 @@ VectorGPU<T>::VectorGPU(const Stream& stream, const int size, const int device, 
     int bytes = size * sizeof(T);
     cudaMallocAsync(&data, bytes, stream.ptr);
     if (src != nullptr) {
+
+        // T* pinned = nullptr;
+        // cudaError_t ce = cudaMallocHost((void**)&pinned, bytes);
+        // if (ce != cudaSuccess) {
+        //     std::cerr << "cudaMallocHost failed: " << cudaGetErrorString(ce) << std::endl;
+        //     //return;
+        // }
+        // memcpy(pinned, src, bytes);
+
+        
         cudaMemcpyAsync(data, src, bytes, cudaMemcpyHostToDevice, stream.ptr);
+        // stream.record();
+
+        // // Lambda cleanup runs later on CPU thread when stream finishes
+        // std::thread([pinned, ev=stream.ev]() mutable {
+        //     cudaEventSynchronize(ev);
+        //     cudaFreeHost(pinned);
+        //     //cudaHostUnregister((void*)dat);    // safe to unpin now
+        // }).detach();
     }
 
     Out(MEMORY, "Managed vector construct OK");

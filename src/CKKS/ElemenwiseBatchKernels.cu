@@ -93,17 +93,44 @@ __global__ void addMult_(void** l, void** l1, void** l2, const __grid_constant__
 }
 
 __global__ void Mult_(void** l, void** l1, void** l2, const __grid_constant__ int primeid_init) {
-    const int primeid = C_.primeid_flattened[primeid_init + blockIdx.y];
-    const int idx = threadIdx.x + blockDim.x * blockIdx.x;
+    // const int primeid = C_.primeid_flattened[primeid_init + blockIdx.y];
+    // const int idx = threadIdx.x + blockDim.x * blockIdx.x;
 
-    //    if (idx == 0)
-    //        printf("%d %d\n", primeid_init + blockIdx.y, primeid);
+    // //    if (idx == 0)
+    // //        printf("%d %d\n", primeid_init + blockIdx.y, primeid);
+    // for(int i=0;i<10;i++){
+    // if (ISU64(primeid)) {
+    //     // l=(void**)l + i;
+    //     // l1=(void**)l + i;
+    //     // l2=(void**)l + i;
+    //     ((uint64_t*)l[blockIdx.y])[idx] =
+    //         modmult<ALGO_BARRETT>(((uint64_t*)l1[blockIdx.y])[idx], ((uint64_t*)l2[blockIdx.y])[idx], primeid)+i;
+    // } else {
+    //     // l=(void**)l + i;
+    //     // l1=(void**)l + i;
+    //     // l2=(void**)l + i;
+    //     ((uint32_t*)l[blockIdx.y])[idx] =
+    //         modmult<ALGO_BARRETT>(((uint32_t*)l1[blockIdx.y])[idx], ((uint32_t*)l2[blockIdx.y])[idx], primeid)+i;
+    // }
+    // }
+
+    const int limb_id = blockIdx.y; // global limb index
+    const int idx     = threadIdx.x + blockDim.x * blockIdx.x;
+
+    // primeid_init should be PARTITION(id, 0) for the first limb,
+    // so primeid_init + limb_id corresponds to PARTITION(id, limb_id)
+    const int primeid = C_.primeid_flattened[primeid_init + limb_id];
+
     if (ISU64(primeid)) {
-        ((uint64_t*)l[blockIdx.y])[idx] =
-            modmult<ALGO_BARRETT>(((uint64_t*)l1[blockIdx.y])[idx], ((uint64_t*)l2[blockIdx.y])[idx], primeid);
+        uint64_t* out = (uint64_t*)l[limb_id];
+        uint64_t* a   = (uint64_t*)l1[limb_id];
+        uint64_t* b   = (uint64_t*)l2[limb_id];
+        out[idx] = modmult<ALGO_BARRETT>(a[idx], b[idx], primeid);
     } else {
-        ((uint32_t*)l[blockIdx.y])[idx] =
-            modmult<ALGO_BARRETT>(((uint32_t*)l1[blockIdx.y])[idx], ((uint32_t*)l2[blockIdx.y])[idx], primeid);
+        uint32_t* out = (uint32_t*)l[limb_id];
+        uint32_t* a   = (uint32_t*)l1[limb_id];
+        uint32_t* b   = (uint32_t*)l2[limb_id];
+        out[idx] = modmult<ALGO_BARRETT>(a[idx], b[idx], primeid);
     }
 }
 

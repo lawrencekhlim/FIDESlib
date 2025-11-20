@@ -48,7 +48,7 @@ do{                 \
 } while(0)
 
 #define STREAM(limb) \
-    ( (limb).index() == U32 ? std::get<U32>(limb).stream : std::get<U64>(limb).stream )
+    ( (limb).index() == U32 ? *(std::get<U32>(limb).stream) : *(std::get<U64>(limb).stream) )
 
 #define PRIMEID(limb) \
     ( (limb).index() == U32 ? std::get<U32>(limb).primeid : std::get<U64>(limb).primeid )

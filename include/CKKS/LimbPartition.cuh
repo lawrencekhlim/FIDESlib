@@ -17,6 +17,8 @@ class LimbPartition {
     const int rank;  // For NCCL / RCCL
 
     Stream s;
+    streamIndepentSet* newStreamSet=nullptr;
+    int newStreamSetIndex =-1;
 
     std::vector<LimbRecord>& meta;
     std::vector<LimbRecord>& SPECIALmeta;
@@ -71,7 +73,10 @@ class LimbPartition {
     void generate(std::vector<LimbRecord>& records, std::vector<LimbImpl>& limbs, VectorGPU<void*>& ptrs, int pos,
                   VectorGPU<void*>* auxptrs, uint64_t* buffer = nullptr, size_t offset = 0,
                   uint64_t* buffer_aux = nullptr, size_t offset_aux = 0);
-
+    
+    void generate(std::vector<LimbRecord>& records,std::vector<Stream>& newStreams,std::vector<LimbImpl>& limbs, VectorGPU<void*>& ptrs, int pos,
+        VectorGPU<void*>* auxptrs, uint64_t* buffer = nullptr, size_t offset = 0,
+        uint64_t* buffer_aux = nullptr, size_t offset_aux = 0);
     void generateLimb();
 
     void generateSpecialLimb();
@@ -125,6 +130,8 @@ class LimbPartition {
     static std::vector<VectorGPU<void*>> generateDecompLimbptr(void** buffer,
                                                                const std::vector<std::vector<LimbRecord>>& DECOMPmeta,
                                                                const int device, int offset);
+
+    void setIndependentStreams(int id,streamIndepentSet& sis);
 
     void generateAllDecompLimb(uint64_t* pInt, size_t offset);
 

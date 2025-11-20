@@ -18,6 +18,23 @@ namespace FIDESlib::CKKS {
 
 class RNSPoly;
 
+class streamIndepentSet{
+public:
+    std::vector<std::vector<Stream>> metaStream;
+    std::vector<Stream> specialMetaStream;                           
+    std::vector<std::vector<std::vector<Stream>>> decompMetaStream;  
+    std::vector<std::vector<std::vector<Stream>>> digitMetaStream; 
+
+    streamIndepentSet() = default;
+
+    streamIndepentSet(const streamIndepentSet&) = delete;
+    streamIndepentSet& operator=(const streamIndepentSet&) = delete;
+
+    streamIndepentSet(streamIndepentSet&&) noexcept = default;
+    streamIndepentSet& operator=(streamIndepentSet&&) noexcept = default;
+
+    ~streamIndepentSet() = default;
+};
 class Context {
     static constexpr const char* loc{"Context"};
     CudaNvtxRange my_range;
@@ -47,6 +64,10 @@ class Context {
     std::vector<LimbRecord> specialMeta;                           // Make const maybe
     std::vector<std::vector<std::vector<LimbRecord>>> decompMeta;  // Make const maybe
     std::vector<std::vector<std::vector<LimbRecord>>> digitMeta;   // Make const maybe
+
+    std::vector<streamIndepentSet> independetStreamSet;
+    void initStreamsForSet(streamIndepentSet& sis);
+    void deleteLastStreamIndependentSet();
 
     const std::vector<dim3> limbGPUid;
     const std::vector<int> GPUrank;
@@ -124,6 +145,7 @@ class Context {
     int GetBootK();
     int GetBootCorrectionFactor();
     static RESCALE_TECHNIQUE translateRescalingTechnique(lbcrypto::ScalingTechnique technique);
+    int createNewStreamSet();
 };
 }  // namespace FIDESlib::CKKS
 #endif  //FIDESLIB_CKKS_CONTEXT_CUH
