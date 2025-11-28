@@ -15,7 +15,7 @@
 #include "NTTdynamicParallelism.cuh"
 #include "Rotation.cuh"
 #include "VectorGPU.cuh"
-#include <thread>
+
 namespace FIDESlib::CKKS {
 
 LimbPartition::LimbPartition(LimbPartition&& l) noexcept
@@ -379,7 +379,7 @@ void ApplyNTT(int batch, LimbPartition::NTT_fusion_fields fields, std::vector<Li
 
     for (int i = 0; i < size; i += batch) {
         uint32_t num_limbs = std::min((uint32_t)batch, (uint32_t)(size - i));
-        // std::cout<< STREAM(limb.at(i)).ptr <<" ntt ptr\n";
+
         NTT_<false, algo, mode>
             <<<dim3{cc.N / (blockDimFirst.x * M * 2), num_limbs}, blockDimFirst, bytesFirst, STREAM(limb.at(i)).ptr>>>(
                 (mode == NTT_RESCALE || mode == NTT_MULTPT) ? limbptr.data + size
@@ -581,15 +581,28 @@ void LimbPartition::add(const LimbPartition& p) {
     }
     */
     s.wait(p.s);
-    for (int i = 0; i < 1;/*limb.size();*/ i += cc.batch) {
-        STREAM(limb[i]).wait(s);
-        const uint32_t num_limbs = static_cast<uint32_t>(limb.size());
-        // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
-        add_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
-            limbptr.data + i, p.limbptr.data + i, PARTITION(id, i));
+    if(limb.size()<=12){
+        for (int i = 0; i < 1; i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = (uint32_t)limb.size();
+            // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            add_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                limbptr.data + i, p.limbptr.data + i, PARTITION(id, i));
+        }
+        for (int i = 0; i < 1; i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
-    for (int i = 0; i < 1;/*limb.size();*/ i += cc.batch) {
-        s.wait(STREAM(limb[i]));
+    else{
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            add_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                limbptr.data + i, p.limbptr.data + i, PARTITION(id, i));
+        }
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
     p.s.wait(s);
 }
@@ -602,16 +615,29 @@ void LimbPartition::sub(const LimbPartition& p) {
     }
     */
     s.wait(p.s);
-    for (int i = 0; i < 1; i += cc.batch) {
-        STREAM(limb[i]).wait(s);
-        const uint32_t num_limbs = static_cast<uint32_t>(limb.size());
-        // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
-        sub_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
-            limbptr.data + i, p.limbptr.data + i, PARTITION(id, i));
+    if(limb.size()<=12){
+        for (int i = 0; i < 1; i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = (uint32_t)limb.size(); //std::min((int)limb.size() - i, cc.batch);
+            // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            sub_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                limbptr.data + i, p.limbptr.data + i, PARTITION(id, i));
+        }
+        for (int i = 0; i < 1; i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
-    for (int i = 0; i < 1; i += cc.batch) {
-        s.wait(STREAM(limb[i]));
-    }
+    else{
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            sub_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                limbptr.data + i, p.limbptr.data + i, PARTITION(id, i));
+        }
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
+    }   
     p.s.wait(s);
 }
 
@@ -624,15 +650,37 @@ void LimbPartition::multElement(const LimbPartition& p) {
         SWITCH(limb.at(i), mult(p.limb.at(i)));
     }
 */
-    for (int i = 0; i < 1;/*limb.size();*/ i += cc.batch) {
+s.wait(p.s);
+    if(/*limb.size()>12 ||*/ cc.batch>1)
+    std::cout<< " came inside multElement "<<cc.batch<<" "<<limb.size() <<" "<<cc.batch<<" "<<PARTITION(id, limb.size()-1)<<" "<<PARTITION(id, limb.size()-2)<<" "<<PARTITION(id, limb.size()-3)<<" "<<PARTITION(id, 0)<<"\n";
+        //std::cout<< limb.size()<<" negative value multElement \n\n\n";//<<limb.size() <<" "<<cc.batch<<" "<<PARTITION(id, i)<<" "<<PARTITION(id, i+1)<<"\n";
+    if(limb.size()<=12){
+    for (int i = 0; i < 1; i += cc.batch) {
         STREAM(limb[i]).wait(s);
         const uint32_t num_limbs = static_cast<uint32_t>(limb.size());
+        // if(limb.size()<=0)
+        // std::cout<< " came inside multElement "<<limb.size() <<" "<<cc.batch<<" "<<PARTITION(id, i)<<" "<<PARTITION(id, i+1)<<"\n";
         // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
         Mult_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
             (void**)limbptr.data + i, (void**)limbptr.data + i, (void**)p.limbptr.data + i, PARTITION(id, i));
     }
-    for (int i = 0; i < 1;/*limb.size();*/ i += cc.batch) {
+    for (int i = 0; i < 1; i += cc.batch) {
         s.wait(STREAM(limb[i]));
+    }
+    }
+    else{
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            // const uint32_t num_limbs = static_cast<uint32_t>(limb.size());
+            // if(limb.size()<=0)
+            // std::cout<< " came inside multElement "<<limb.size() <<" "<<cc.batch<<" "<<PARTITION(id, i)<<" "<<PARTITION(id, i+1)<<"\n";
+            uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            Mult_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                (void**)limbptr.data + i, (void**)limbptr.data + i, (void**)p.limbptr.data + i, PARTITION(id, i));
+        }
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
     p.s.wait(s);
 
@@ -668,16 +716,33 @@ void LimbPartition::multElement(const LimbPartition& partition1, const LimbParti
     assert(partition1.limb.size() <= partition2.limb.size());
     s.wait(partition1.s);
     s.wait(partition2.s);
-    for (int i = 0; i < 1; i += cc.batch) {
-        STREAM(limb[i]).wait(s);
-        const uint32_t num_limbs = static_cast<uint32_t>(limb.size());
-        // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
-        Mult_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
-            (void**)limbptr.data + i, (void**)partition1.limbptr.data + i, (void**)partition2.limbptr.data + i,
-            PARTITION(id, i));
+    if(limb.size()<=12){
+        for (int i = 0; i < 1; i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            const uint32_t num_limbs = static_cast<uint32_t>(limb.size());
+            // std::cout<< " came inside multElement (-2 )"<<limb.size() <<" "<<cc.batch<<" "<<PARTITION(id, i)<<" "<<PARTITION(id, i+1)<<" "<<PARTITION(id, i+3)<<"\n";
+            // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            Mult_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                (void**)limbptr.data + i, (void**)partition1.limbptr.data + i, (void**)partition2.limbptr.data + i,
+                PARTITION(id, i));
+        }
+        for (int i = 0; i < 1; i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
-    for (int i = 0; i < 1; i += cc.batch) {
-        s.wait(STREAM(limb[i]));
+    else{
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            // const uint32_t num_limbs = static_cast<uint32_t>(limb.size());
+            // std::cout<< " came inside multElement (-2 )"<<limb.size() <<" "<<cc.batch<<" "<<PARTITION(id, i)<<" "<<PARTITION(id, i+1)<<" "<<PARTITION(id, i+3)<<"\n";
+            uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            Mult_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                (void**)limbptr.data + i, (void**)partition1.limbptr.data + i, (void**)partition2.limbptr.data + i,
+                PARTITION(id, i));
+        }
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
     partition1.s.wait(s);
     partition2.s.wait(s);
@@ -894,19 +959,31 @@ void LimbPartition::mult1AddMult23(const LimbPartition& partition1, const LimbPa
     s.wait(partition1.s);
     s.wait(partition2.s);
     s.wait(partition3.s);
-
-    for (int i = 0; i < 1; i += cc.batch) {
-    STREAM(limb[i]).wait(s);
-    const uint32_t num_limbs = static_cast<uint32_t>(limb.size());
-    // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
-    mult1AddMult23_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
-    PARTITION(id, i), limbptr.data + i, partition1.limbptr.data + i, partition2.limbptr.data + i,
-    partition3.limbptr.data + i);
+    if(limb.size()<=12){
+        for (int i = 0; i < 1; i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = (uint32_t)limb.size();
+            // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            mult1AddMult23_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+            PARTITION(id, i), limbptr.data + i, partition1.limbptr.data + i, partition2.limbptr.data + i,
+            partition3.limbptr.data + i);
+        }
+        for (int i = 0; i < 1; i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
-    for (int i = 0; i < 1; i += cc.batch) {
-    s.wait(STREAM(limb[i]));
+    else{
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+        STREAM(limb[i]).wait(s);
+        uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+        mult1AddMult23_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+        PARTITION(id, i), limbptr.data + i, partition1.limbptr.data + i, partition2.limbptr.data + i,
+        partition3.limbptr.data + i);
+        }
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+        s.wait(STREAM(limb[i]));
+        }
     }
-
     partition1.s.wait(s);
     partition2.s.wait(s);
     partition3.s.wait(s);
@@ -924,17 +1001,30 @@ void LimbPartition::mult1AddMult23Add4(const LimbPartition& partition1, const Li
     s.wait(partition2.s);
     s.wait(partition3.s);
     s.wait(partition4.s);
-
-    for (int i = 0; i < 1; i += cc.batch) {
-        STREAM(limb[i]).wait(s);
-        const uint32_t num_limbs = static_cast<uint32_t>(limb.size());
-        // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
-        mult1AddMult23Add4_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
-            PARTITION(id, i), limbptr.data + i, partition1.limbptr.data + i, partition2.limbptr.data + i,
-            partition3.limbptr.data + i, partition4.limbptr.data + i);
+    if(limb.size()<=12){
+        for (int i = 0; i < 1; i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = (uint32_t)limb.size();
+            // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            mult1AddMult23Add4_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                PARTITION(id, i), limbptr.data + i, partition1.limbptr.data + i, partition2.limbptr.data + i,
+                partition3.limbptr.data + i, partition4.limbptr.data + i);
+        }
+        for (int i = 0; i < 1; i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
-    for (int i = 0; i < 1; i += cc.batch) {
-        s.wait(STREAM(limb[i]));
+    else{
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            mult1AddMult23Add4_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                PARTITION(id, i), limbptr.data + i, partition1.limbptr.data + i, partition2.limbptr.data + i,
+                partition3.limbptr.data + i, partition4.limbptr.data + i);
+        }
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
 
     partition1.s.wait(s);
@@ -950,18 +1040,29 @@ void LimbPartition::mult1Add2(const LimbPartition& partition1, const LimbPartiti
 
     s.wait(partition1.s);
     s.wait(partition2.s);
-
-    for (int i = 0; i < 1; i += cc.batch) {
-        STREAM(limb[i]).wait(s);
-        const uint32_t num_limbs = static_cast<uint32_t>(limb.size());
-        // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
-        mult1Add2_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
-            PARTITION(id, i), limbptr.data + i, partition1.limbptr.data + i, partition2.limbptr.data + i);
+    if(limb.size()<=12){
+        for (int i = 0; i < 1; i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = (uint32_t)limb.size();
+            // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            mult1Add2_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                PARTITION(id, i), limbptr.data + i, partition1.limbptr.data + i, partition2.limbptr.data + i);
+        }
+        for (int i = 0; i < 1; i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
-    for (int i = 0; i < 1; i += cc.batch) {
-        s.wait(STREAM(limb[i]));
+    else{
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            mult1Add2_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                PARTITION(id, i), limbptr.data + i, partition1.limbptr.data + i, partition2.limbptr.data + i);
+        }
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
-
     partition1.s.wait(s);
     partition2.s.wait(s);
 }
@@ -972,10 +1073,7 @@ void LimbPartition::generateLimbSingleMalloc(int num_limbs) {
     assert(num_limbs <= meta.size());
     if (bufferLIMB == nullptr) {
         cudaMallocAsync(&bufferLIMB, cc.N * num_limbs * 2 * sizeof(uint64_t), s.ptr);
-        if(newStreamSet && newStreamSetIndex>=0){
-            generate(meta,cc.independetStreamSet[newStreamSetIndex].metaStream[id], limb, limbptr, (int)num_limbs - 1, &auxptr, bufferLIMB, 0, bufferLIMB, cc.N * num_limbs);
-        }
-        else
+
         generate(meta, limb, limbptr, (int)num_limbs - 1, &auxptr, bufferLIMB, 0, bufferLIMB, cc.N * num_limbs);
         /*
         for (auto& l : limb)
@@ -990,10 +1088,7 @@ void LimbPartition::generateLimbConstant(int num_limbs) {
     assert(num_limbs <= meta.size());
     if (bufferLIMB == nullptr) {
         cudaMallocAsync(&bufferLIMB, cc.N * num_limbs * sizeof(uint64_t), s.ptr);
-        if(newStreamSet && newStreamSetIndex>=0){
-            generate(meta,cc.independetStreamSet[newStreamSetIndex].metaStream[id], limb, limbptr, (int)num_limbs - 1, &auxptr, bufferLIMB, 0, nullptr, 0);
-        }
-        else
+
         generate(meta, limb, limbptr, (int)num_limbs - 1, &auxptr, bufferLIMB, 0, nullptr, 0);
     }
 }
@@ -1871,13 +1966,22 @@ void LimbPartition::automorph(const int index, const int br) {
     }
     std::swap(limbptr.data, auxptr.data);
     */
-
-    for (int i = 0; i < 1; i += cc.batch) {
-        STREAM(limb[i]).wait(s);
-        const uint32_t num_limbs = static_cast<uint32_t>(limb.size());
-        // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
-        automorph_multi_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
-            limbptr.data + i, auxptr.data + i, index, br);
+    if(limb.size()<=12){
+        for (int i = 0; i < 1; i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = (uint32_t)limb.size();
+            // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            automorph_multi_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                limbptr.data + i, auxptr.data + i, index, br);
+        }
+    }
+    else{
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            automorph_multi_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                limbptr.data + i, auxptr.data + i, index, br);
+        }
     }
     for (auto& i : limb) {
         if (i.index() == U32) {
@@ -1887,8 +1991,15 @@ void LimbPartition::automorph(const int index, const int br) {
         }
     }
     std::swap(limbptr.data, auxptr.data);
-    for (int i = 0; i < 1; i += cc.batch) {
-        s.wait(STREAM(limb[i]));
+    if(limb.size()<=12){
+        for (int i = 0; i < 1; i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
+    }
+    else{
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
 }
 
@@ -2024,63 +2135,29 @@ void LimbPartition::multScalar(std::vector<uint64_t>& vector) {
 
     uint64_t* elems;
     cudaMallocAsync(&elems, vector.size() * sizeof(uint64_t), s.ptr);
-    // uint64_t* pinned = nullptr;
-    // {
-    //     // cudaPointerAttributes attr;
-    //     // cudaError_t err = cudaPointerGetAttributes(&attr, vector.data());
-
-    //     // if (err != cudaSuccess) {
-    //     //     // Pageable memory, not registered
-    //     //     cudaGetLastError(); // clear the sticky error
-    //     //     cudaError_t regErr = cudaHostRegister(vector.data(), vector.size() * sizeof(uint64_t), cudaHostRegisterDefault);
-    //     //     if (regErr != cudaSuccess) {
-    //     //         std::cerr << "cudaHostRegister failed: " << cudaGetErrorString(regErr) << std::endl;
-    //     //         return;
-    //     //     }
-    //     // } else {
-    //     //     if (attr.type != cudaMemoryTypeHost) {
-    //     //         cudaError_t regErr = cudaHostRegister(vector.data(), vector.size() * sizeof(uint64_t), cudaHostRegisterDefault);
-    //     //         if (regErr != cudaSuccess) {
-    //     //             std::cerr << "cudaHostRegister failed: " << cudaGetErrorString(regErr) << std::endl;
-    //     //             return;
-    //     //         }
-    //     //     }
-    //     // }
-
-    //     // cudaHostRegister((void *) dat.data(), dat.size() * sizeof(T), cudaHostRegisterDefault);
-    //     // CudaCheckErrorModNoSync;
-        
-    //     cudaError_t ce = cudaMallocHost((void**)&pinned, vector.size() * sizeof(uint64_t));
-    //     if (ce != cudaSuccess) {
-    //         std::cerr << "cudaMallocHost failed: " << cudaGetErrorString(ce) << std::endl;
-    //         return;
-    //     }
-    //     memcpy(pinned, vector.data(), vector.size() * sizeof(uint64_t));
-
-    // }
     cudaMemcpyAsync(elems, vector.data(), vector.size() * sizeof(uint64_t), cudaMemcpyDefault, s.ptr);
-    // {
-    //     s.record();
-    //     // cudaEvent_t done;
-    //     // cudaEventCreateWithFlags(&done, cudaEventDisableTiming);
-    //     // cudaEventRecord(done, s.ptr);
-
-    //     // Lambda cleanup runs later on CPU thread when stream finishes
-    //     std::thread([dat = pinned, ev=s.ev]() mutable {
-    //         cudaEventSynchronize(ev);        // waits for GPU to finish with dat
-    //         // cudaEventDestroy(done);
-    //         cudaFreeHost(dat);   // safe to unpin now
-    //     }).detach();
-    // }
-    for (int i = 0; i < 1; i += cc.batch) {
-        STREAM(limb[i]).wait(s);
-        const uint32_t num_limbs = static_cast<uint32_t>(limb.size());
-        // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
-        Scalar_mult_<ALGO_BARRETT><<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
-            limbptr.data + i, elems + i, PARTITION(id, i), nullptr);
+    if(limb.size()<=12){
+        for (int i = 0; i < 1; i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = (uint32_t)limb.size();
+            // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            Scalar_mult_<ALGO_BARRETT><<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                limbptr.data + i, elems + i, PARTITION(id, i), nullptr);
+        }
+        for (int i = 0; i < 1; i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
-    for (int i = 0; i < limb.size(); i += cc.batch) {
-        s.wait(STREAM(limb[i]));
+    else{
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            Scalar_mult_<ALGO_BARRETT><<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                limbptr.data + i, elems + i, PARTITION(id, i), nullptr);
+        }
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
     cudaFreeAsync(elems, s.ptr);
 }
@@ -2088,99 +2165,88 @@ void LimbPartition::multScalar(std::vector<uint64_t>& vector) {
 void LimbPartition::addScalar(std::vector<uint64_t>& vector) {
     uint64_t* elems;
     cudaMallocAsync(&elems, vector.size() * sizeof(uint64_t), s.ptr);
-    // uint64_t* pinned = nullptr;
-    // {
-        
-    //     cudaError_t ce = cudaMallocHost((void**)&pinned, vector.size() * sizeof(uint64_t));
-    //     if (ce != cudaSuccess) {
-    //         std::cerr << "cudaMallocHost failed: " << cudaGetErrorString(ce) << std::endl;
-    //         return;
-    //     }
-    //     memcpy(pinned, vector.data(), vector.size() * sizeof(uint64_t));
-
-    // }
-
     cudaMemcpyAsync(elems, vector.data(), vector.size() * sizeof(uint64_t), cudaMemcpyDefault, s.ptr);
-
-    // {
-    //     s.record();
-    //     // cudaEvent_t done;
-    //     // cudaEventCreateWithFlags(&done, cudaEventDisableTiming);
-    //     // cudaEventRecord(done, s.ptr);
-
-    //     // Lambda cleanup runs later on CPU thread when stream finishes
-    //     std::thread([dat = pinned, ev=s.ev]() mutable {
-    //         cudaEventSynchronize(ev);        // waits for GPU to finish with dat
-    //         // cudaEventDestroy(done);
-    //         cudaFreeHost(dat);    // safe to unpin now
-    //     }).detach();
-    // }
-
-    for (int i = 0; i < 1; i += cc.batch) {
-        STREAM(limb[i]).wait(s);
-        const uint32_t num_limbs = static_cast<uint32_t>(limb.size());
-        // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
-        scalar_add_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(limbptr.data + i, elems + i,
-                                                                                            PARTITION(id, i));
+    if(limb.size()<=12){
+        for (int i = 0; i < 1; i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = (uint32_t)limb.size();
+            // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            scalar_add_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(limbptr.data + i, elems + i,
+                                                                                                PARTITION(id, i));
+        }
+        for (int i = 0; i < 1; i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
-    for (int i = 0; i < 1; i += cc.batch) {
-        s.wait(STREAM(limb[i]));
+    else{
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            scalar_add_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(limbptr.data + i, elems + i,
+                                                                                                PARTITION(id, i));
+        }
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
     cudaFreeAsync(elems, s.ptr);
 }
 void LimbPartition::subScalar(std::vector<uint64_t>& vector) {
     uint64_t* elems;
     cudaMallocAsync(&elems, vector.size() * sizeof(uint64_t), s.ptr);
-
-    // uint64_t* pinned = nullptr;
-    // {
-    //     cudaError_t ce = cudaMallocHost((void**)&pinned, vector.size() * sizeof(uint64_t));
-    //     if (ce != cudaSuccess) {
-    //         std::cerr << "cudaMallocHost failed: " << cudaGetErrorString(ce) << std::endl;
-    //         return;
-    //     }
-    //     memcpy(pinned, vector.data(), vector.size() * sizeof(uint64_t));
-
-    // }
-
     cudaMemcpyAsync(elems, vector.data(), vector.size() * sizeof(uint64_t), cudaMemcpyDefault, s.ptr);
-
-    // {
-    //     s.record();
-
-    //     // Lambda cleanup runs later on CPU thread when stream finishes
-    //     std::thread([dat = pinned, ev=s.ev]() mutable {
-    //         cudaEventSynchronize(ev); 
-    //         cudaFreeHost(dat);    // safe to unpin now
-    //     }).detach();
-    // }
-
-    for (int i = 0; i < 1; i += cc.batch) {
-        STREAM(limb[i]).wait(s);
-        const uint32_t num_limbs = static_cast<uint32_t>(limb.size());
-        // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
-        scalar_sub_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(limbptr.data + i, elems + i,
-                                                                                            PARTITION(id, i));
+    if(limb.size()<=12){
+        for (int i = 0; i < 1; i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = (uint32_t)limb.size();
+            // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            scalar_sub_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(limbptr.data + i, elems + i,
+                                                                                                PARTITION(id, i));
+        }
+        for (int i = 0; i < 1; i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
-    for (int i = 0; i < 1; i += cc.batch) {
-        s.wait(STREAM(limb[i]));
+    else{
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            scalar_sub_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(limbptr.data + i, elems + i,
+                                                                                                PARTITION(id, i));
+        }
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
+
     cudaFreeAsync(elems, s.ptr);
 }
 
 void LimbPartition::add(const LimbPartition& a, const LimbPartition& b) {
     s.wait(a.s);
     s.wait(b.s);
-
-    for (int i = 0; i < 1;/*limb.size();*/ i += cc.batch) {
-        STREAM(limb[i]).wait(s);
-        const uint32_t num_limbs = static_cast<uint32_t>(limb.size());
-        // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
-        add_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
-            limbptr.data + i, a.limbptr.data + i, b.limbptr.data + i, PARTITION(id, i));
+    if(limb.size()<=12){
+        for (int i = 0; i < 1; i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = (uint32_t)limb.size();
+            // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            add_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                limbptr.data + i, a.limbptr.data + i, b.limbptr.data + i, PARTITION(id, i));
+        }
+        for (int i = 0; i < 1; i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
-    for (int i = 0; i < 1;/*limb.size();*/ i += cc.batch) {
-        s.wait(STREAM(limb[i]));
+    else{
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            add_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                limbptr.data + i, a.limbptr.data + i, b.limbptr.data + i, PARTITION(id, i));
+        }
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
     a.s.wait(s);
     b.s.wait(s);
@@ -2188,15 +2254,28 @@ void LimbPartition::add(const LimbPartition& a, const LimbPartition& b) {
 void LimbPartition::squareElement(const LimbPartition& p) {
     s.wait(p.s);
     int size = std::min(limb.size(), p.limb.size());
-    for (int i = 0; i < 1; i += cc.batch) {
-        STREAM(limb[i]).wait(s);
-        const uint32_t num_limbs = static_cast<uint32_t>(size);
-        // uint32_t num_limbs = std::min((int)size - i, cc.batch);
-        square_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
-            limbptr.data + i, p.limbptr.data + i, PARTITION(id, i));
+    if(size<=12){
+        for (int i = 0; i < 1; i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = (uint32_t)size;
+            // uint32_t num_limbs = std::min((int)size - i, cc.batch);
+            square_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                limbptr.data + i, p.limbptr.data + i, PARTITION(id, i));
+        }
+        for (int i = 0; i < 1; i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
-    for (int i = 0; i < 1; i += cc.batch) {
-        s.wait(STREAM(limb[i]));
+    else{
+        for (int i = 0; i < size; i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = std::min((int)size - i, cc.batch);
+            square_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                limbptr.data + i, p.limbptr.data + i, PARTITION(id, i));
+        }
+        for (int i = 0; i < size; i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
     p.s.wait(s);
 }
@@ -2205,16 +2284,30 @@ void LimbPartition::binomialSquareFold(LimbPartition& c0_res, const LimbPartitio
     s.wait(c0_res.s);
     s.wait(c2_key_switched_0.s);
     s.wait(c2_key_switched_1.s);
-    for (int i = 0; i < 1; i += cc.batch) {
-        STREAM(limb[i]).wait(s);
-        const uint32_t num_limbs = static_cast<uint32_t>(limb.size());
-        // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
-        binomial_square_fold_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
-            c0_res.limbptr.data + i, c2_key_switched_0.limbptr.data + i, limbptr.data + i,
-            c2_key_switched_1.limbptr.data + i, PARTITION(id, i));
+    if(limb.size()<=12){
+        for (int i = 0; i < 1; i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = (uint32_t)limb.size();
+            // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            binomial_square_fold_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                c0_res.limbptr.data + i, c2_key_switched_0.limbptr.data + i, limbptr.data + i,
+                c2_key_switched_1.limbptr.data + i, PARTITION(id, i));
+        }
+        for (int i = 0; i < 1; i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
-    for (int i = 0; i < 1; i += cc.batch) {
-        s.wait(STREAM(limb[i]));
+    else{
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            binomial_square_fold_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                c0_res.limbptr.data + i, c2_key_switched_0.limbptr.data + i, limbptr.data + i,
+                c2_key_switched_1.limbptr.data + i, PARTITION(id, i));
+        }
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
     c0_res.s.wait(s);
     c2_key_switched_0.s.wait(s);
@@ -2229,15 +2322,28 @@ void LimbPartition::dropLimb() {
 void LimbPartition::addMult(const LimbPartition& a, const LimbPartition& b) {
     s.wait(a.s);
     s.wait(b.s);
-    for (int i = 0; i < 1; i += cc.batch) {
-        STREAM(limb[i]).wait(s);
-        const uint32_t num_limbs = static_cast<uint32_t>(limb.size());
-        // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
-        addMult_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
-            limbptr.data + i, a.limbptr.data + i, b.limbptr.data + i, PARTITION(id, i));
+    if(limb.size()<=12){
+        for (int i = 0; i < 1; i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = (uint32_t)limb.size();
+            // uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            addMult_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                limbptr.data + i, a.limbptr.data + i, b.limbptr.data + i, PARTITION(id, i));
+        }
+        for (int i = 0; i < 1; i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
-    for (int i = 0; i < 1; i += cc.batch) {
-        s.wait(STREAM(limb[i]));
+    else{
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            STREAM(limb[i]).wait(s);
+            uint32_t num_limbs = std::min((int)limb.size() - i, cc.batch);
+            addMult_<<<dim3{(uint32_t)cc.N / 128, num_limbs}, 128, 0, STREAM(limb[i]).ptr>>>(
+                limbptr.data + i, a.limbptr.data + i, b.limbptr.data + i, PARTITION(id, i));
+        }
+        for (int i = 0; i < limb.size(); i += cc.batch) {
+            s.wait(STREAM(limb[i]));
+        }
     }
     a.s.wait(s);
     b.s.wait(s);
@@ -2248,37 +2354,14 @@ void LimbPartition::broadcastLimb0() {
 void LimbPartition::evalLinearWSum(uint32_t n, std::vector<const LimbPartition*> ps, std::vector<uint64_t>& weights) {
     uint64_t* elems;
     cudaMallocAsync(&elems, weights.size() * sizeof(uint64_t), s.ptr);
-    // uint64_t* pinned = nullptr;
-    // {
-    //     cudaError_t ce = cudaMallocHost((void**)&pinned, weights.size() * sizeof(uint64_t));
-    //     if (ce != cudaSuccess) {
-    //         std::cerr << "cudaMallocHost failed: " << cudaGetErrorString(ce) << std::endl;
-    //         return;
-    //     }
-    //     memcpy(pinned, weights.data(), weights.size() * sizeof(uint64_t));
-
-    // }
-
     cudaMemcpyAsync(elems, weights.data(), weights.size() * sizeof(uint64_t), cudaMemcpyDefault, s.ptr);
-
-    // {
-    //     s.record();
-    //     // Lambda cleanup runs later on CPU thread when stream finishes
-    //     std::thread([dat = pinned, ev=s.ev]() mutable {
-    //         cudaEventSynchronize(ev);
-    //         cudaFreeHost(dat);    // safe to unpin now
-    //     }).detach();
-    // }
-
-    void ***psptr;
-    cudaMallocHost((void****)&psptr, n * sizeof(void**));
-    //std::vector<void**> psptr(n, nullptr);
+    std::vector<void**> psptr(n, nullptr);
     for (int i = 0; i < n; ++i) {
         psptr[i] = ps[i]->limbptr.data;
     }
     void*** d_psptr;
-    cudaMallocAsync(&d_psptr, n * sizeof(void**), s.ptr);
-    cudaMemcpyAsync(d_psptr, psptr, n * sizeof(void**), cudaMemcpyDefault, s.ptr);
+    cudaMallocAsync(&d_psptr, psptr.size() * sizeof(void**), s.ptr);
+    cudaMemcpyAsync(d_psptr, psptr.data(), psptr.size() * sizeof(void**), cudaMemcpyDefault, s.ptr);
 
     for (int i = 0; i < n; ++i) {
         s.wait(ps[i]->s);
@@ -2307,7 +2390,6 @@ void LimbPartition::evalLinearWSum(uint32_t n, std::vector<const LimbPartition*>
     }
     cudaFreeAsync(elems, s.ptr);
     cudaFreeAsync(d_psptr, s.ptr);
-    cudaFreeHost(psptr);
 }
 
 }  // namespace FIDESlib::CKKS

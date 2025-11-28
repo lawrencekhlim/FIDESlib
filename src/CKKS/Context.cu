@@ -591,12 +591,12 @@ void Context::ClearRotationKeysGPU() {
 
 KeySwitchingKey& Context::GetRotationKey(int index) {
     //index = index % (cc.N / 2);
-    std::cout << "Requesting rotation key for index: " << index << std::endl;
+    // std::cout << "Requesting rotation key for index: " << index << std::endl;
     if (index < 0) {
-        std::cout << "GetRotationKey index negative: " << index << std::endl;
+        // std::cout << "GetRotationKey index negative: " << index << std::endl;
         index += this->N / 2;
     }
-    std::cout << "Adjusted index: " << index << std::endl;
+    // std::cout << "Adjusted index: " << index << std::endl;
     {
         std::lock_guard<std::mutex> lk(rot_keys_mutex);
         if (rot_keys.contains(index)) {
