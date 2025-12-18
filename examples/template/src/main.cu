@@ -10,8 +10,10 @@
 #include <LimbUtils.cuh>
 #include <CKKS/openfhe-interface/RawCiphertext.cuh>
 #include <CKKS/Ciphertext.cuh>
+#include <CKKS/Plaintext.cuh>
 #include <CKKS/KeySwitchingKey.cuh>
 #include <CKKS/Bootstrap.cuh>
+#include <complex>
 
 std::vector<FIDESlib::PrimeRecord> p64{
     {.p = 2305843009218281473}, {.p = 2251799661248513}, {.p = 2251799661641729}, {.p = 2251799665180673},
@@ -35,31 +37,7 @@ std::vector<FIDESlib::PrimeRecord> sp64{
 
 FIDESlib::CKKS::Parameters params{.logN = 13, .L = 5, .dnum = 2, .primes = p64, .Sprimes = sp64};
 
-/// Operación de vectores normal y corriente.
-void operaciones_normal(std::vector<double> &a, const std::vector<double> &b) {
-
-	/// 1. Suma	
-	for (int i = 0; i < a.size(); ++i) {
-		a[i] += b[i];
-	}
-
-	/// 2. Multiplicación.
-	for (int i = 0; i < a.size(); ++i) {
-		a[i] *= b[i];
-	}
-
-	/// 3 Rotación.
-	int indice_rotacion = 2;
-	std::vector<double> tmp (a.size(), 0);
-	for (unsigned int i = 0; i < a.size(); ++i) {
-		tmp[i] = a[((i+indice_rotacion)%a.size())];
-	}
-	a = tmp;
-}
-
-/// Operaciones de vectores utilizando OpenFHE.
-void operaciones_openfhe(std::vector<double> &a, const std::vector<double> &b) {
-
+void operaciones_fideslib(std::vector<double> &a, std::vector<double> &b) {
 	/// 1. Generar contexto.
 	lbcrypto::CryptoContext<lbcrypto::DCRTPoly> cc = generate_context();
 
@@ -67,63 +45,11 @@ void operaciones_openfhe(std::vector<double> &a, const std::vector<double> &b) {
 	auto keys = cc->KeyGen();
 	/// 2.1 Crear clave de multiplicación en OpenFHE.
 	cc->EvalMultKeyGen(keys.secretKey);
-	/// 2.2 Crear claves de rotación en OpenFHE.
-	std::vector<int> indices_rotacion {2, -1};
-	cc->EvalRotateKeyGen(keys.secretKey, indices_rotacion);
 
 	/// 3. Encriptar datos de entrada.
-	lbcrypto::Plaintext a_texto_plano = cc->MakeCKKSPackedPlaintext(a);
-	lbcrypto::Plaintext b_texto_plano = cc->MakeCKKSPackedPlaintext(b);
-	lbcrypto::Ciphertext<lbcrypto::DCRTPoly> a_texto_cifrado = cc->Encrypt(keys.publicKey, a_texto_plano);
-	lbcrypto::Ciphertext<lbcrypto::DCRTPoly> b_texto_cifrado = cc->Encrypt(keys.publicKey, b_texto_plano);
-
-	/// 4. Operar con textos cifrados.
-	/// 4.1 Suma.
-	auto res_texto_cifrado = cc->EvalAdd(a_texto_cifrado, b_texto_cifrado);
-	/// 4.2 Multiplicación.
-	res_texto_cifrado = cc->EvalMult(res_texto_cifrado, b_texto_cifrado);
-    /// 4.3 Rotación.
-	int indice_rotacion = 2;
-	res_texto_cifrado = cc->EvalRotate(res_texto_cifrado, indice_rotacion);
-
-	/// 5. Desencriptar texto cifrado.
-	lbcrypto::Plaintext res_texto_plano;
-	cc->Decrypt(keys.secretKey, res_texto_cifrado, &res_texto_plano);
-	res_texto_plano->SetLength(a.size());
-	auto res = res_texto_plano->GetCKKSPackedValue();
-
-	for (int i = 0; i < a.size(); ++i) {
-		a[i] = res[i].real();
-	}
-
-	/// ATENCIÓN. Cuando no quieras usar más un contexto, usa estos métodos para ahorrar memoria.
-	cc->ClearEvalMultKeys();
-	cc->ClearEvalAutomorphismKeys();
-}
-
-/// Operaciones de vectores utilizando FIDESlib.
-void operaciones_fideslib(std::vector<double> &a, const std::vector<double> &b) {
-	
-	/// 1. Generar contexto.
-	lbcrypto::CryptoContext<lbcrypto::DCRTPoly> cc = generate_context();
-
-	/// 2. Crear claves.
-	auto keys = cc->KeyGen();
-	/// 2.1 Crear clave de multiplicación en OpenFHE.
-	cc->EvalMultKeyGen(keys.secretKey);
-	/// 2.2 Crear claves de rotación en OpenFHE.
-	std::vector<int> indices_rotacion {2, -1};
-	cc->EvalRotateKeyGen(keys.secretKey, indices_rotacion);
-
-	/// 3. Encriptar datos de entrada.
-	lbcrypto::Plaintext a_texto_plano = cc->MakeCKKSPackedPlaintext(a);
-	lbcrypto::Plaintext b_texto_plano = cc->MakeCKKSPackedPlaintext(b);
+	std::vector<std::complex<double>> test_nums = {{1, 2}, {3, -4}, {-5, 6}, {-7, -8}, {9, 10}, {-11, 12}, {-13, 14}, {-15, -16}};
+	lbcrypto::Plaintext a_texto_plano = cc->MakeCKKSPackedPlaintext(test_nums, 1, 1);
 	lbcrypto::Ciphertext<lbcrypto::DCRTPoly> a_ct = cc->Encrypt(keys.publicKey, a_texto_plano);
-	lbcrypto::Ciphertext<lbcrypto::DCRTPoly> b_ct = cc->Encrypt(keys.publicKey, b_texto_plano);
-
-	// 3.1 Copiar ciphertext en OpenFHE.
-	lbcrypto::Ciphertext<lbcrypto::DCRTPoly> c_ct(b_ct);
-
 	/// 4. Obtener los parámetros de OpenFHE en bruto.
 	auto raw_params = FIDESlib::CKKS::GetRawParams(cc);
 	/// 5. Adaptar los parámetros de FIDESlib según los de OpenFHE.
@@ -140,51 +66,34 @@ void operaciones_fideslib(std::vector<double> &a, const std::vector<double> &b) 
 	clave_evaluacion_gpu.Initialize(gpu_cc, clave_evaluacion);
 	/// 6.1.4 Añadir la clave de evaluación al contexto de GPU para poder usarla después.
 	gpu_cc.AddEvalKey(std::move(clave_evaluacion_gpu));
-	/// 6.2 Carga de claves de rotación.
-	/// 6.2.1 Iterar por todos los índices de rotación para cargar sus claves correspondientes.
-	for (int i : indices_rotacion) {
-		/// 6.2.2 Extraer la clave del contexto. Se da de parámetro las claves de encriptación, el índice deseado y el contexto de cpu.
-		auto clave_rotacion = FIDESlib::CKKS::GetRotationKeySwitchKey(keys, i, cc);
-		/// 6.2.3 Crear un objeto clave de gpu en el que almacenar la clave anterior.
-		FIDESlib::CKKS::KeySwitchingKey clave_rotacion_gpu(gpu_cc);
-		/// 6.2.4 Inicializar el objeto anterior con la clave extraida del contexto de OpenFHE.
-		clave_rotacion_gpu.Initialize(gpu_cc, clave_rotacion);
-		/// 6.2.5 Añadir la clave de rotación al contexto de GPU para poder usarla después.
-		gpu_cc.AddRotationKey(i, std::move(clave_rotacion_gpu));
-	}
 
 	/// 7. Eliminar metadatos irrelevantes de textos cifrados.
 	FIDESlib::CKKS::RawCipherText a_ct_raw = FIDESlib::CKKS::GetRawCipherText(cc, a_ct);
-	FIDESlib::CKKS::RawCipherText b_ct_raw = FIDESlib::CKKS::GetRawCipherText(cc, b_ct);
+
+	// Test OpenFHE AddScalar
+	cc->EvalAdd(a_ct, std::complex<double>(2.0, 3.0));
+
 	/// 8. Cargar en GPU los textos cifrados.
 	FIDESlib::CKKS::Ciphertext a_ct_gpu (gpu_cc, a_ct_raw);
-	FIDESlib::CKKS::Ciphertext b_ct_gpu (gpu_cc, b_ct_raw);
-
-	/// 8.1 Copiar ciphertext en GPU.
-	FIDESlib::CKKS::Ciphertext copia(gpu_cc);
-	copia.copy(a_ct_gpu);
 
 	/// 9. Operar.
-	/// 9.1 Suma.	
-	a_ct_gpu.add(b_ct_gpu);
-	/// 9.2 Multiplicación. Se requiere la clave de multiplicación que obtendremos del contexto.;
-	a_ct_gpu.mult(b_ct_gpu, gpu_cc.GetEvalKey());
-	/// 9.2.1 Multiplicación alternativa. Si no se tiene el contexto de GPU disponible se puede obtener desde el propio ciphertext..
-	// a_ct_gpu.mult(b_ct_gpu, b_ct_gpu.cc.GetEvalKey());
-	/// 9.3 Rotación de elementos.
-	int indice_rotacion = 2;
-	a_ct_gpu.rotate(indice_rotacion, gpu_cc.GetRotationKey(indice_rotacion));
-	/// 9.3.1 Rotación alternativa. Obtener contexto de GPU desde el ciphertext.
-	// a_ct_gpu.rotate(i, a_ct_gpu.cc.GetRotationKey(i));
-	/// 9.4 Cuadrado de un ciphertext
-	a_ct_gpu.square(gpu_cc.GetEvalKey()); // a_ct_gpu.square(gpu_cc.GetEvalKey(), true);  
+	/// 9.1 Addition. Se requiere la clave de multiplicación que obtendremos del contexto.;
+	std::vector<std::complex<double>> test_nums_2={{1, 1},{1, 1},{1, 1},{1, 1},{1, 1},{1, 1},{1, 1},{1, 1}};
+	lbcrypto::Plaintext a_texto_plano_2 = cc->MakeCKKSPackedPlaintext(test_nums_2);
+	FIDESlib::CKKS::RawPlainText raw2_test = FIDESlib::CKKS::GetRawPlainText(cc, a_texto_plano_2);
+	FIDESlib::CKKS::Plaintext GPUpt2 (gpu_cc, raw2_test);
+	std::cout << " before addscalar\n";
+	a_ct_gpu.multScalar(std::complex<double>(1.0, 1.0));
+	// std::cout<<" before multi\n";
+	// a_ct_gpu.addPt(GPUpt2);
+	// a_ct_gpu.multPt(GPUpt2);
 
-	/// 10. Volcar datos de vuelta.
+	/// 11. Volcar datos de vuelta.
 	a_ct_gpu.store(gpu_cc, a_ct_raw);
 	lbcrypto::Ciphertext<lbcrypto::DCRTPoly> res_openfhe(a_ct);
 	FIDESlib::CKKS::GetOpenFHECipherText(res_openfhe, a_ct_raw);
 
-	/// 11. Desencriptar.
+	/// 12. Desencriptar.
 	lbcrypto::Plaintext res_pt_fideslib;
 	cc->Decrypt(keys.secretKey, res_openfhe, &res_pt_fideslib);
 	res_pt_fideslib->SetLength(a.size());
@@ -194,12 +103,16 @@ void operaciones_fideslib(std::vector<double> &a, const std::vector<double> &b) 
 		a[i] = res_fideslib[i].real();
 	}
 
+	for (int i = 0; i < b.size(); ++i) {
+		b[i] = res_fideslib[i].imag();
+	}
+
 	/// ATENCIÓN. Cuando no quieras usar más un contexto, usa estos métodos para ahorrar memoria.
 	cc->ClearEvalMultKeys();
 	cc->ClearEvalAutomorphismKeys();
 }
 
-void operaciones_openfhe_bootstrap(std::vector<double> &a, const std::vector<double> &b) {
+void operaciones_openfhe_bootstrap(std::vector<double> &a, std::vector<double> &b) {
 
 	/// 1. Generar contexto.
 	lbcrypto::CryptoContext<lbcrypto::DCRTPoly> cc = generate_context();
@@ -218,7 +131,8 @@ void operaciones_openfhe_bootstrap(std::vector<double> &a, const std::vector<dou
 	cc->EvalBootstrapPrecompute(num_slots);
 
 	/// 3. Encriptar datos de entrada.
-	lbcrypto::Plaintext a_texto_plano = cc->MakeCKKSPackedPlaintext(a);
+	std::vector<std::complex<double>> test_nums = {{1, 2}, {3, -4}, {-5, 6}, {-7, -8}};
+	lbcrypto::Plaintext a_texto_plano = cc->MakeCKKSPackedPlaintext(test_nums);
 	lbcrypto::Plaintext b_texto_plano = cc->MakeCKKSPackedPlaintext(b);
 	lbcrypto::Ciphertext<lbcrypto::DCRTPoly> a_texto_cifrado = cc->Encrypt(keys.publicKey, a_texto_plano);
 	lbcrypto::Ciphertext<lbcrypto::DCRTPoly> b_texto_cifrado = cc->Encrypt(keys.publicKey, b_texto_plano);
@@ -228,7 +142,7 @@ void operaciones_openfhe_bootstrap(std::vector<double> &a, const std::vector<dou
 	std::cout << "Niveles antes de multiplicar: " << a_texto_cifrado->GetLevel() << std::endl;
 	auto res_texto_cifrado = cc->EvalMult(a_texto_cifrado, b_texto_cifrado);
 	res_texto_cifrado = cc->EvalMult(res_texto_cifrado, b_texto_cifrado);
-	res_texto_cifrado = cc->EvalMult(res_texto_cifrado, b_texto_cifrado);
+	// res_texto_cifrado = cc->EvalMult(res_texto_cifrado, b_texto_cifrado);
 	std::cout << "Niveles después de multiplicar: " << res_texto_cifrado->GetLevel() << std::endl;
 
 	/// 5. Bootstraping 
@@ -257,12 +171,17 @@ void operaciones_openfhe_bootstrap(std::vector<double> &a, const std::vector<dou
 		a[i] = res[i].real();
 	}
 
+	for (int i = 0; i < b.size(); ++i) {
+		b[i] = res[i].imag();
+	}
+
+
 	/// ATENCIÓN. Cuando no quieras usar más un contexto, usa estos métodos para ahorrar memoria.
 	cc->ClearEvalMultKeys();
 	cc->ClearEvalAutomorphismKeys();
 }
 
-void operaciones_fideslib_bootstrap(std::vector<double> &a, const std::vector<double> &b) {
+void operaciones_fideslib_bootstrap(std::vector<double> &a, std::vector<double> &b) {
 	/// 1. Generar contexto.
 	lbcrypto::CryptoContext<lbcrypto::DCRTPoly> cc = generate_context();
 
@@ -280,7 +199,8 @@ void operaciones_fideslib_bootstrap(std::vector<double> &a, const std::vector<do
 	cc->EvalBootstrapPrecompute(num_slots);
 
 	/// 3. Encriptar datos de entrada.
-	lbcrypto::Plaintext a_texto_plano = cc->MakeCKKSPackedPlaintext(a);
+	std::vector<std::complex<double>> test_nums = {{1, 2}, {3, -4}, {-5, 6}, {-7, -8}};
+	lbcrypto::Plaintext a_texto_plano = cc->MakeCKKSPackedPlaintext(test_nums);
 	lbcrypto::Plaintext b_texto_plano = cc->MakeCKKSPackedPlaintext(b);
 	lbcrypto::Ciphertext<lbcrypto::DCRTPoly> a_ct = cc->Encrypt(keys.publicKey, a_texto_plano);
 	lbcrypto::Ciphertext<lbcrypto::DCRTPoly> b_ct = cc->Encrypt(keys.publicKey, b_texto_plano);
@@ -334,6 +254,10 @@ void operaciones_fideslib_bootstrap(std::vector<double> &a, const std::vector<do
 		a[i] = res_fideslib[i].real();
 	}
 
+	for (int i = 0; i < b.size(); ++i) {
+		b[i] = res_fideslib[i].imag();
+	}
+
 	/// ATENCIÓN. Cuando no quieras usar más un contexto, usa estos métodos para ahorrar memoria.
 	cc->ClearEvalMultKeys();
 	cc->ClearEvalAutomorphismKeys();
@@ -351,38 +275,57 @@ int main() {
 	std::vector<double> vectorA = datos;
 	std::vector<double> vectorB = datos;
 
-	operaciones_normal(vectorA, vectorB);
-
-	for (auto a : vectorA) {
-		std::cout << a << ", ";
-	}
-	std::cout << std::endl;
-
-	vectorA = datos;
-	operaciones_openfhe(vectorA, vectorB);
-
-	for (auto a : vectorA) {
-		std::cout << a << ", ";
-	}
-	std::cout << std::endl;
-
-	vectorA = datos;
 	operaciones_fideslib(vectorA, vectorB);
-
+	std::cout << "Real part results:" << std::endl;
 	for (auto a : vectorA) {
 		std::cout << a << ", ";
 	}
 	std::cout << std::endl;
-
-	operaciones_openfhe_bootstrap(vectorA, vectorB);
-	for (auto a : vectorA) {
-		std::cout << a << ", ";
+	std::cout << "Imaginary part results:" << std::endl;
+	for (auto b : vectorB) {
+		std::cout << b << ", ";
 	}
 	std::cout << std::endl;
 
-	operaciones_fideslib_bootstrap(vectorA, vectorB);
-	for (auto a : vectorA) {
-		std::cout << a << ", ";
-	}
-	std::cout << std::endl;
+	// for (auto a : vectorA) {
+	// 	std::cout << a << ", ";
+	// }
+	// std::cout << std::endl;
+
+	// std::cout << "Before bootstrap" << std::endl;
+
+	// operaciones_fideslib_bootstrap(vectorA, vectorB);
+
+	// std::cout << "Bootstrap done" << std::endl;
+
+	// std::cout << "Real part results:" << std::endl;
+	// for (auto a : vectorA) {
+	// 	std::cout << a << ", ";
+	// }
+	// std::cout << std::endl;
+	// std::cout << "Imaginary part results:" << std::endl;
+	// for (auto b : vectorB) {
+	// 	std::cout << b << ", ";
+	// }
+	// std::cout << std::endl;
+
+	// vectorA = datos;
+	// vectorB = datos;
+
+	// std::cout << "Before openfhe bootstrap" << std::endl;
+
+	// operaciones_openfhe_bootstrap(vectorA, vectorB);
+
+	// std::cout << "Bootstrap openfhe done" << std::endl;
+
+	// std::cout << "Real part results:" << std::endl;
+	// for (auto a : vectorA) {
+	// 	std::cout << a << ", ";
+	// }
+	// std::cout << std::endl;
+	// std::cout << "Imaginary part results:" << std::endl;
+	// for (auto b : vectorB) {
+	// 	std::cout << b << ", ";
+	// }
+	// std::cout << std::endl;
 }

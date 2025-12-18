@@ -6,9 +6,11 @@ lbcrypto::CryptoContext<lbcrypto::DCRTPoly> generate_context() {
 
     // Selección de parámetros.
 
-    constexpr uint32_t scale_mod_size = 59;
-    constexpr uint32_t first_mod = 60;
-    constexpr uint32_t num_large_digits = 3;
+    // auto secretKeyDist = lbcrypto::SecretKeyDist::SPARSE_TERNARY;
+
+    constexpr uint32_t scale_mod_size = 49;
+    constexpr uint32_t first_mod = 52;
+    constexpr uint32_t num_large_digits = 5;
 
     lbcrypto::CCParams<lbcrypto::CryptoContextCKKSRNS> parameters;
     parameters.SetScalingModSize(scale_mod_size);
@@ -18,9 +20,14 @@ lbcrypto::CryptoContext<lbcrypto::DCRTPoly> generate_context() {
     parameters.SetSecurityLevel(lbcrypto::HEStd_NotSet);
     parameters.SetScalingTechnique(lbcrypto::FLEXIBLEAUTO);
     parameters.SetNumLargeDigits(num_large_digits);
+    parameters.SetCKKSDataType(lbcrypto::COMPLEX);
+
+    // Default secret key distribution.
+    // parameters.SetSecretKeyDist(secretKeyDist);
 
     // Parámetros bootstrap.
-    constexpr uint32_t levelsAvailableAfterBootstrap = 20;
+    constexpr uint32_t levelsAvailableAfterBootstrap = 5;
+
     usint depth = levelsAvailableAfterBootstrap + lbcrypto::FHECKKSRNS::GetBootstrapDepth(level_budget, parameters.GetSecretKeyDist());
     parameters.SetMultiplicativeDepth(depth);
 
