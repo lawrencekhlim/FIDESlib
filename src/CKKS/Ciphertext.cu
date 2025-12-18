@@ -590,6 +590,89 @@ void Ciphertext::addScalar(const double c) {
     }
 }
 
+void Ciphertext::addScalar(const std::complex<double> c) {
+    CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
+
+    auto elem1 = cc.ElemForEvalAddOrSub(c0.getLevel(), std::fabs(c.real()), this->NoiseLevel);
+    auto elem2 = cc.ElemForEvalAddOrSub(c0.getLevel(), std::fabs(c.imag()), this->NoiseLevel);
+
+    uint32_t sizeQl = c0.getLevel() + 1;
+
+    std::vector<uint64_t> moduli(sizeQl);
+    for (int i = 0; i < sizeQl; ++i)
+        moduli[i] = cc.prime[i].p;
+
+    std::vector<std::vector<uint64_t>> data;
+    for (uint32_t i = 0; i < sizeQl; i++) {
+        std::vector<uint64_t> vec(cc.N, 0);
+        vec[0]            = (c.real() > 0) ? elem1[i] % (moduli[i]) : (-elem1[i] % (moduli[i]) + moduli[i]) % (moduli[i]);
+        vec[cc.N / 2]        = (c.imag() > 0) ? elem2[i] % (moduli[i]) : (-elem2[i] % (moduli[i]) + moduli[i]) % (moduli[i]);
+        data.push_back(vec);
+    }
+
+    RNSPoly elemComplex(cc, data);
+    elemComplex.NTT(cc.batch);
+    c0.add(elemComplex);
+}
+
+
+// multScalar
+void Ciphertext::multScalar(const std::complex<double> c, bool rescale) {
+    CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
+
+    if (cc.rescaleTechnique == Context::FLEXIBLEAUTO || cc.rescaleTechnique == Context::FLEXIBLEAUTOEXT ||
+        cc.rescaleTechnique == Context::FIXEDAUTO) {
+        if (NoiseLevel == 2)
+            this->rescale();
+    }
+    assert(this->NoiseLevel == 1);
+
+    auto elem1 = cc.ElemForEvalMult(c0.getLevel(), c.real());
+    auto elem2 = cc.ElemForEvalMult(c0.getLevel(), c.imag());
+
+    RNSPoly real0 = c0.clone();
+    RNSPoly imag0 = c0.clone();
+    RNSPoly real1 = c1.clone();
+    RNSPoly imag1 = c1.clone();
+    real0.multScalar(elem1);
+    imag0.multScalar(elem2);
+    real1.multScalar(elem1);
+    imag1.multScalar(elem2);
+
+    uint32_t N               = cc.N;
+    uint32_t M               = 2 * N;
+
+    std::vector<std::vector<uint64_t>> poly;
+    uint32_t power        = M / 4;
+    uint32_t powerReduced = power % M;
+    uint32_t index        = power % N;
+    for (int i = 0; i <= c0.getLevel(); ++i) {
+        std::vector<uint64_t> vec(N, 0);
+        vec[index]       = powerReduced < N ? 1 : cc.prime[0].p - 1;
+        poly.push_back(vec);
+    }
+    RNSPoly monomial(cc, poly);
+    monomial.NTT(cc.batch);
+
+    imag0.multElement(monomial);
+    imag1.multElement(monomial);
+    c0.add(real0, imag0);
+    c1.add(real1, imag1);
+
+    // Manage metadata
+    NoiseLevel += 1;
+    NoiseFactor *= cc.param.ScalingFactorReal.at(c0.getLevel());
+    if (rescale) {
+        NoiseFactor /= cc.param.ModReduceFactor.at(c0.getLevel());
+        NoiseLevel -= 1;
+    }
+
+    if (rescale) {
+        c0.rescale();
+        c1.rescale();
+    }
+}
+
 void Ciphertext::automorph(const int index, const int br) {
     CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
 
@@ -818,6 +901,12 @@ void Ciphertext::multScalar(const Ciphertext& b, const double c, bool rescale) {
     this->copy(b);
     this->multScalar(c, rescale);
 }
+void Ciphertext::multScalar(const Ciphertext& b, const std::complex<double> c, bool rescale) {
+    CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
+
+    this->copy(b);
+    this->multScalar(c, rescale);
+}
 void Ciphertext::evalLinearWSumMutable(uint32_t n, const std::vector<Ciphertext>& ctxs, std::vector<double> weights) {
     CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
 
@@ -883,6 +972,12 @@ void Ciphertext::addMultScalar(const Ciphertext& b, double d) {
     c1.add(aux1);
 }
 void Ciphertext::addScalar(const Ciphertext& b, double c) {
+    CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
+
+    this->copy(b);
+    this->addScalar(c);
+}
+void Ciphertext::addScalar(const Ciphertext& b, std::complex<double> c) {
     CudaNvtxRange r(std::string{std::source_location::current().function_name()}.substr(23 + strlen(loc)));
 
     this->copy(b);

@@ -6,6 +6,7 @@
 #define FIDESLIB_CKKS_CIPHERTEXT_CUH
 
 #include <source_location>
+#include <complex>
 #include "RNSPoly.cuh"
 #include "forwardDefs.cuh"
 #include "openfhe-interface/RawCiphertext.cuh"
@@ -42,6 +43,7 @@ class Ciphertext {
     void subPtFrom(const Ciphertext& ciphertext, const Plaintext& plaintext);
 
     void addScalar(const double c);
+    void addScalar(const std::complex<double> c);
 
     void multPt(const Plaintext& b, bool rescale = false);
     void multPt(const Ciphertext& c, const Plaintext& b, bool rescale = false);
@@ -55,7 +57,9 @@ class Ciphertext {
 
     void multScalarNoPrecheck(const double c, bool rescale = false);
     void multScalar(const double c, bool rescale = false);
+    void multScalar(const std::complex<double> c, bool rescale = false);
     void multScalar(const Ciphertext& b, const double c, bool rescale = false);
+    void multScalar(const Ciphertext& b, const std::complex<double> c, bool rescale = false);
 
     void square(const KeySwitchingKey& kskEval, bool rescale = false);
 
@@ -84,6 +88,7 @@ class Ciphertext {
     void evalLinearWSumMutable(uint32_t n, const std::vector<Ciphertext>& ctxs, std::vector<double> weights);
     void addMultScalar(const Ciphertext& ciphertext, double d);
     void addScalar(const Ciphertext& b, double c);
+    void addScalar(const Ciphertext& b, std::complex<double> c);
     void add(const Ciphertext& ciphertext, const Ciphertext& ciphertext1);
     void sub(const Ciphertext& ciphertext, const Ciphertext& ciphertext1);
     void copy(const Ciphertext& ciphertext);
